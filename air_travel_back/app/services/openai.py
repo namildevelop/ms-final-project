@@ -84,3 +84,77 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error calling Azure OpenAI: {e}")
         return {"error": f"Failed to generate plan: {str(e)}"}
+
+def get_gpt_chat_response(trip_details: Dict[str, Any], current_plan: Dict[str, Any], user_prompt: str) -> Dict[str, Any]:
+    """
+    Generates a chat response or a modified trip plan using Azure OpenAI GPT model.
+    """
+    client = AzureOpenAI(
+        azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+        api_key=settings.AZURE_OPENAI_API_KEY,
+        api_version="2024-02-01",
+    )
+
+    prompt_content = f"""
+당신은 여행 계획을 돕는 AI 비서입니다. 현재 여행 계획과 사용자의 요청을 바탕으로 질문에 답변하거나 계획을 수정합니다.
+응답은 항상 JSON 형식으로 제공해야 합니다.
+
+**현재 여행 정보:**
+- 여행 제목: {trip_details.get('title', '미정')}
+- 기간: {trip_details.get('start_date')}부터 {trip_details.get('end_date')}까지
+- 목적지: {trip_details.get('destination_city', '')}, {trip_details.get('destination_country', '')}
+
+**현재 여행 계획:**
+```json
+{json.dumps(current_plan, indent=2, ensure_ascii=False)}
+```
+
+**사용자 요청:**
+"{user_prompt}"
+
+**지시사항:**
+1.  사용자의 요청이 단순히 정보를 묻는 질문이라면, 'notes' 필드에 답변을 담아 응답하세요. 'itinerary' 필드는 기존 계획을 그대로 유지하세요.
+2.  사용자의 요청이 계획 수정을 요구하는 것이라면, 'itinerary' 필드를 수정하여 새로운 계획을 반영하고, 'notes' 필드에 변경 사항에 대한 요약을 담아 응답하세요.
+3.  응답 형식은 반드시 다음 JSON 구조를 따라야 합니다:
+    {{
+      "itinerary": [ ... ], // 수정되었거나 기존의 일정
+      "notes": "[사용자 요청에 대한 답변 또는 계획 수정 요약]"
+    }}
+"""
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an AI assistant that helps with travel plans, answering questions and modifying existing itineraries based on user requests. You always respond in JSON format."
+        },
+        {
+            "role": "user",
+            "content": prompt_content
+        }
+    ]
+
+    try:
+        completion = client.chat.completions.create(
+            model=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.7,
+            top_p=0.95,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=None,
+            stream=False
+        )
+        
+        gpt_response_content = completion.choices[0].message.content
+        
+        try:
+            parsed_response = json.loads(gpt_response_content)
+            return parsed_response
+        except json.JSONDecodeError:
+            print(f"Warning: GPT chat response was not valid JSON: {gpt_response_content}")
+            return {"error": "Failed to parse GPT response as JSON", "notes": gpt_response_content}
+
+    except Exception as e:
+        print(f"Error calling Azure OpenAI for chat: {e}")
+        return {"error": f"Failed to get chat response: {str(e)}", "notes": "죄송합니다, GPT와 통신하는 중 오류가 발생했습니다."}
