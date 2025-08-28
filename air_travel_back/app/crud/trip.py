@@ -3,7 +3,7 @@ from app.db.models import Trip, TripMember, TripInterest, TripPlan, User, TripCh
 from app.schemas.trip import TripCreate
 import json
 from sqlalchemy.orm import joinedload
-from app.services.openai import generate_trip_plan_with_gpt
+from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
 from app.crud.user import get_user_by_username # Import user lookup function
 
 def create_trip(db: Session, trip: TripCreate, creator_id: int):
@@ -98,8 +98,6 @@ def create_chat_message(db: Session, trip_id: int, sender_id: int, message: str,
         is_from_gpt=is_from_gpt
     )
     db.add(db_chat)
-    db.commit()
-    db.refresh(db_chat)
     return db_chat
 
 def get_chat_messages(db: Session, trip_id: int):
@@ -108,48 +106,55 @@ def get_chat_messages(db: Session, trip_id: int):
 def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, current_user_id: int):
     db_trip = get_trip_by_id(db, trip_id)
     if not db_trip:
-        return None # Or raise an error
+        return None, []
 
-    # Get current plan content (assuming only one plan per trip for simplicity)
-    current_plan_content = {} # Default empty
+    # Get current plan content
+    current_plan_content = {}
     if db_trip.plans:
         current_plan_content = json.loads(db_trip.plans[0].content)
 
-    # Construct prompt for GPT to modify/suggest based on current plan and user prompt
-    gpt_prompt_details = {
-        "current_plan": current_plan_content,
-        "user_request": user_prompt,
-        "trip_details": {
-            "title": db_trip.title,
-            "start_date": str(db_trip.start_date),
-            "end_date": str(db_trip.end_date),
-            "destination_country": db_trip.destination_country,
-            "destination_city": db_trip.destination_city,
-            "transport_method": db_trip.transport_method,
-            "accommodation": db_trip.accommodation,
-            "trend": db_trip.trend,
-            "interests": [interest.interest for interest in db_trip.interests]
-        }
+    # Prepare details for the new chat-focused GPT function
+    trip_details_for_chat = {
+        "title": db_trip.title,
+        "start_date": str(db_trip.start_date),
+        "end_date": str(db_trip.end_date),
+        "destination_country": db_trip.destination_country,
+        "destination_city": db_trip.destination_city,
     }
     
-    gpt_response = generate_trip_plan_with_gpt(gpt_prompt_details) # Re-using the same GPT function
+    # Call the new chat-focused GPT function
+    gpt_response = get_gpt_chat_response(
+        trip_details=trip_details_for_chat,
+        current_plan=current_plan_content,
+        user_prompt=user_prompt
+    )
 
-    # Update trip plan if GPT generated a new one
-    if "itinerary" in gpt_response: # Assuming a valid plan structure
+    # Update trip plan if GPT returned a new one
+    if "itinerary" in gpt_response and gpt_response["itinerary"]:
+        # We assume the response for a plan modification will contain the full plan
+        full_plan_response = {
+            "trip_title": db_trip.title,
+            "destination": f"{db_trip.destination_city}, {db_trip.destination_country}",
+            "duration": f"{db_trip.start_date} - {db_trip.end_date}",
+            "itinerary": gpt_response["itinerary"],
+            "notes": gpt_response.get("notes", "")
+        }
         if db_trip.plans:
-            db_trip.plans[0].content = json.dumps(gpt_response)
+            db_trip.plans[0].content = json.dumps(full_plan_response)
             db.add(db_trip.plans[0])
         else:
-            new_plan = TripPlan(trip_id=trip_id, content=json.dumps(gpt_response))
+            new_plan = TripPlan(trip_id=trip_id, content=json.dumps(full_plan_response))
             db.add(new_plan)
     
-    db.commit()
-
     # Save user prompt as a chat message
-    create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False)
+    user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False)
 
     # Save GPT response as a chat message
-    gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.") # Or format the plan into a readable message
-    create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True) # sender_id=None for GPT
+    gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
+    gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True)
 
-    return gpt_response
+    db.commit()
+    db.refresh(user_chat_message)
+    db.refresh(gpt_chat_message)
+
+    return gpt_response, [user_chat_message, gpt_chat_message]

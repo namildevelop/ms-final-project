@@ -88,7 +88,6 @@ async def websocket_endpoint(
             payload = message_data.get("payload")
 
             if message_type == "chat_message":
-                # Save chat message to the database
                 with next(get_db()) as db:
                     db_chat_message = crud_trip.create_chat_message(
                         db=db,
@@ -96,7 +95,8 @@ async def websocket_endpoint(
                         sender_id=user.id,
                         message=payload['message']
                     )
-                    # Construct response from the DB object to ensure consistency
+                    db.commit()
+                    db.refresh(db_chat_message)
                     response_payload = {
                         "id": db_chat_message.id,
                         "trip_id": db_chat_message.trip_id,
@@ -111,8 +111,41 @@ async def websocket_endpoint(
                 await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
             elif message_type == "gpt_prompt":
-                # For now, just echo back a confirmation for GPT prompts
-                await websocket.send_text(json.dumps({"type": "system_message", "payload": {"message": "GPT prompt received, processing disabled for this test."}}))
+                try:
+                    with next(get_db()) as db:
+                        gpt_response, new_messages = crud_trip.process_gpt_prompt_for_trip(
+                            db=db,
+                            trip_id=trip_id,
+                            user_prompt=payload['user_prompt'],
+                            current_user_id=user.id
+                        )
+
+                        if gpt_response is None:
+                            await websocket.send_text(json.dumps({"type": "system_message", "payload": {"message": "Error processing GPT prompt."}}))
+                            continue
+
+                        for chat in new_messages:
+                            response_payload = {
+                                "id": chat.id,
+                                "trip_id": chat.trip_id,
+                                "sender": {
+                                    "id": chat.sender.id if chat.sender else None,
+                                    "nickname": chat.sender.nickname if chat.sender else "GPT"
+                                },
+                                "message": chat.message,
+                                "is_from_gpt": chat.is_from_gpt,
+                                "created_at": chat.created_at.isoformat()
+                            }
+                            await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
+
+                        if "itinerary" in gpt_response:
+                            await manager.broadcast(
+                                trip_id,
+                                json.dumps({"type": "plan_update", "payload": {"message": "Trip plan has been updated by GPT."}})
+                            )
+                except Exception as e:
+                    print(f"Error processing GPT prompt: {e}")
+                    await websocket.send_text(json.dumps({"type": "system_message", "payload": {"message": "An error occurred while talking to GPT."}}))
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, trip_id)
