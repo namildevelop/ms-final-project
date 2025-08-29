@@ -5,41 +5,70 @@ import {
   SafeAreaView,
   StyleSheet,
   Animated,
+  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../../src/context/AuthContext';
 
 const AIPlanningPage: React.FC = () => {
   const router = useRouter();
+  const { tripId } = useLocalSearchParams();
+  const { token } = useAuth();
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // 로딩 애니메이션 시작
-    const startAnimation = () => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(animatedValue, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: false,
-          }),
-          Animated.timing(animatedValue, {
-            toValue: 0,
-            duration: 1000,
-            useNativeDriver: false,
-          }),
-        ])
-      ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    if (!tripId || !token) {
+      Alert.alert("오류", "여행 정보를 불러올 수 없습니다.");
+      router.replace('/main');
+      return;
+    }
+
+    const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('AI Planning WebSocket Connected');
     };
 
-    startAnimation();
+    ws.onmessage = (event) => {
+      const messageData = JSON.parse(event.data);
+      if (messageData.type === 'plan_update') {
+        console.log('Plan update received, navigating to itinerary.');
+        router.replace(`/trip-itinerary/${tripId}`);
+      }
+    };
 
-    // 2초 후 여행 계획표 페이지로 이동
-    const timer = setTimeout(() => {
-      router.replace('/trip-itinerary');
-    }, 2000);
+    ws.onerror = (error) => {
+      console.error('WebSocket Error:', error.message);
+      Alert.alert("오류", "연결 중 문제가 발생했습니다.");
+      router.replace('/main');
+    };
 
-    return () => clearTimeout(timer);
-  }, [router, animatedValue]);
+    ws.onclose = () => {
+      console.log('AI Planning WebSocket Disconnected');
+    };
+
+    // Clean up the WebSocket connection when the component unmounts
+    return () => {
+      ws.close();
+    };
+  }, [router, animatedValue, tripId, token]);
 
   const rotateAnimation = animatedValue.interpolate({
     inputRange: [0, 1],

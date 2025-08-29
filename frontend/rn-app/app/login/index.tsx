@@ -11,10 +11,12 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { styles } from './styles';
+import { styles } from './_styles';
+import { useAuth } from '../../src/context/AuthContext';
 
 const Login: React.FC = () => {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -30,34 +32,9 @@ const Login: React.FC = () => {
     setErrorMessage('');
 
     try {
-      // TODO: 백엔드 API 연동
-      console.log('로그인 시도:', { email, password });
-      
-      // 마스터키 확인
-      if (email === 'test' && password === '1234') {
-        console.log('마스터키 로그인 성공!');
-        Alert.alert('성공', '마스터키로 로그인되었습니다!', [
-          {
-            text: '확인',
-            onPress: () => {
-              router.replace('/main');
-            },
-          },
-        ]);
-        return;
-      }
-
-      // 임시 로그인 로직 (나중에 백엔드로 교체)
-      if (email === 'test@test.com' && password === 'password') {
-        console.log('일반 로그인 성공!');
-        Alert.alert('성공', '로그인되었습니다!', [
-          {
-            text: '확인',
-            onPress: () => {
-              router.replace('/main');
-            },
-          },
-        ]);
+      const success = await login(email, password);
+      if (success) {
+        router.replace('/main');
       } else {
         setErrorMessage('이메일 또는 비밀번호가 올바르지 않습니다.');
       }

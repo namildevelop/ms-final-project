@@ -11,7 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { styles } from './styles';
+import { styles } from './_styles';
 
 const AdditionalInfo: React.FC = () => {
   const router = useRouter();

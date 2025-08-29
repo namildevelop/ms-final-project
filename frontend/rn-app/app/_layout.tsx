@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AuthProvider } from '../src/context/AuthContext';
 
 export default function RootLayout() {
   return (
-    <>
+    <AuthProvider>
       <Stack 
         screenOptions={{
           headerShown: false,
@@ -18,6 +19,6 @@ export default function RootLayout() {
                  <Stack.Screen name="trip-preferences" />
       </Stack>
       <StatusBar style="auto" />
-    </>
+    </AuthProvider>
   );
 }
