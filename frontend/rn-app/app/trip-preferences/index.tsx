@@ -7,12 +7,17 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../../src/context/AuthContext';
 
 const TripPreferencesPage: React.FC = () => {
   const router = useRouter();
-  
+  const params = useLocalSearchParams();
+  const { createTrip } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
   // 교통방식 선택 (중복 선택 가능)
   const [selectedTransportation, setSelectedTransportation] = useState<string[]>([]);
   
@@ -66,16 +71,36 @@ const TripPreferencesPage: React.FC = () => {
   };
 
   // 완료 버튼 핸들러
-  const handleComplete = () => {
-    console.log('선택된 선호도:', {
-      transportation: selectedTransportation,
-      interests: selectedInterests,
-      accommodation: selectedAccommodation,
-      reflectTrends
-    });
-    
-    // AI 계획 화면으로 바로 이동
-    router.replace('/ai-planning');
+  const handleComplete = async () => {
+    setIsLoading(true);
+    try {
+      const tripData = {
+        title: `${params.region} 여행`, // Example title
+        start_date: params.startDate,
+        end_date: params.endDate,
+        destination_country: params.country,
+        destination_city: params.region,
+        transport_method: selectedTransportation.join(', '),
+        accommodation: selectedAccommodation.join(', '),
+        interests: selectedInterests,
+        trend: reflectTrends,
+      };
+
+      const newTrip = await createTrip(tripData);
+
+      if (newTrip) {
+        router.replace({ 
+          pathname: '/ai-planning',
+          params: { tripId: newTrip.id }
+        });
+      } else {
+        Alert.alert('오류', '여행 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      Alert.alert('오류', '여행 생성 중 문제가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 이전 버튼 핸들러
@@ -196,10 +221,11 @@ const TripPreferencesPage: React.FC = () => {
             <Text style={styles.previousButtonText}>이전</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.completeButton}
+            style={[styles.completeButton, isLoading && styles.disabledButton]}
             onPress={handleComplete}
+            disabled={isLoading}
           >
-            <Text style={styles.completeButtonText}>완료</Text>
+            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.completeButtonText}>완료</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -340,6 +366,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#a0aec0',
   },
   completeButtonText: {
     fontSize: 16,

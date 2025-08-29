@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,193 +6,272 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useAuth } from '../../src/context/AuthContext';
 
-interface TripPlan {
-  id: string;
-  destination: string;
-  startDate: string;
-  endDate: string;
-  daysLeft: number;
-  participants: number;
-  leaderNickname: string;
+interface Trip {
+  id: number;
+  title: string;
+  start_date: string;
+  end_date: string;
 }
 
 const MainPage: React.FC = () => {
   const router = useRouter();
+  const { getTrips } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [tripPlans, setTripPlans] = useState<TripPlan[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 현재 월의 첫 번째 날과 마지막 날 계산
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-  const startDate = new Date(firstDayOfMonth);
-  startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
+  useFocusEffect(
+    useCallback(() => {
+      const fetchTrips = async () => {
+        setIsLoading(true);
+        const fetchedTrips = await getTrips();
+        setTrips(fetchedTrips || []);
+        setIsLoading(false);
+      };
+      fetchTrips();
+    }, [getTrips])
+  );
 
-  // 달력에 표시할 날짜들 생성
-  const calendarDays = [];
-  const endDate = new Date(lastDayOfMonth);
-  endDate.setDate(endDate.getDate() + (6 - lastDayOfMonth.getDay()));
+  const calendarData = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
 
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    calendarDays.push(new Date(d));
-  }
+    const daysInMonth = [];
+    const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
 
-  // 월 변경 핸들러
-  const changeMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
+    // Add blank days for the first week
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      daysInMonth.push(null);
     }
-    setCurrentDate(newDate);
+
+    // Add all days of the current month
+    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+      daysInMonth.push(new Date(year, month, i));
+    }
+
+    return daysInMonth;
+  }, [currentDate]);
+
+  const categorizedTrips = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcoming: Trip[] = [];
+    const ongoing: Trip[] = [];
+    const finished: Trip[] = [];
+
+    trips.forEach(trip => {
+      const startDate = new Date(trip.start_date);
+      const endDate = new Date(trip.end_date);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+
+      if (endDate < today) {
+        finished.push(trip);
+      } else if (startDate > today) {
+        upcoming.push(trip);
+      } else {
+        ongoing.push(trip);
+      }
+    });
+
+    upcoming.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+    ongoing.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+    finished.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+
+    return { upcoming, ongoing, finished };
+  }, [trips]);
+
+  const getTripDateDisplay = (trip: Trip, status: 'ongoing' | 'upcoming' | 'finished') => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(trip.start_date);
+    startDate.setHours(0, 0, 0, 0);
+
+    if (status === 'ongoing') {
+      const diffTime = Math.abs(today.getTime() - startDate.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return `${diffDays}일차`;
+    }
+    if (status === 'upcoming') {
+      const diffTime = startDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return `D-${diffDays}`;
+    }
+    return '종료';
   };
 
-  // 날짜 선택 핸들러
-  const selectDate = (date: Date) => {
-    setSelectedDate(date);
-  };
-
-  // 여행 계획 상세 페이지로 이동
-  const goToTripDetail = (tripId: string) => {
-    router.push(`/trip-detail/${tripId}`);
-  };
-
-  // 여행 계획 만들기 페이지로 이동
-  const goToCreateTrip = () => {
-    router.push('/create-trip');
-  };
-
-  // 여행 계획이 있는 날짜인지 확인
-  const hasTripOnDate = (date: Date) => {
-    return tripPlans.some(trip => {
-      const start = new Date(trip.startDate);
-      const end = new Date(trip.endDate);
-      return date >= start && date <= end;
+  const changeMonth = (direction: 'prev' | 'next') => {
+    setCurrentDate(prevDate => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(1); // Avoid issues with month-end dates
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      return newDate;
     });
   };
 
-  // 오늘 날짜인지 확인
+  const hasTripOnDate = (date: Date) => {
+    if (!date) return false;
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return trips.some(trip => {
+      const start = new Date(trip.start_date);
+      const end = new Date(trip.end_date);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      return checkDate >= start && checkDate <= end;
+    });
+  };
+
   const isToday = (date: Date) => {
+    if (!date) return false;
     const today = new Date();
     return date.getDate() === today.getDate() &&
            date.getMonth() === today.getMonth() &&
            date.getFullYear() === today.getFullYear();
   };
 
-  // 현재 월인지 확인
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === currentDate.getMonth() &&
-           date.getFullYear() === currentDate.getFullYear();
+  const renderTripCard = (trip: Trip, status: 'ongoing' | 'upcoming' | 'finished') => {
+    const isFinished = status === 'finished';
+    const dateText = getTripDateDisplay(trip, status);
+
+    const countdownStyle = 
+        status === 'ongoing' ? styles.ongoingCountdown :
+        status === 'upcoming' ? styles.upcomingCountdown :
+        styles.finishedCountdown;
+
+    const countdownTextStyle = 
+        status === 'ongoing' ? styles.ongoingCountdownText :
+        status === 'upcoming' ? styles.upcomingCountdownText :
+        styles.finishedCountdownText;
+
+    return (
+      <TouchableOpacity
+        key={trip.id}
+        style={[styles.tripCard, isFinished && styles.finishedTripCard]}
+        onPress={() => !isFinished && router.push(`/trip-itinerary/${trip.id}`)}
+        disabled={isFinished}
+      >
+        <View style={styles.tripInfo}>
+          <Text style={[styles.tripDestination, isFinished && styles.finishedText]}>{trip.title}</Text>
+          <Text style={[styles.tripDates, isFinished && styles.finishedText]}>
+            {trip.start_date} - {trip.end_date}
+          </Text>
+        </View>
+        <View style={countdownStyle}>
+          <Text style={countdownTextStyle}>{dateText}</Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.title}>
             <Text style={styles.titleAir}>Air</Text> Travel
           </Text>
-          <TouchableOpacity style={styles.cameraButton}>
-            <Text style={styles.cameraIcon}>📷</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 달력 섹션 */}
-        <View style={styles.calendarSection}>
-          {/* 월 네비게이션 */}
-          <View style={styles.monthNavigation}>
-            <TouchableOpacity onPress={() => changeMonth('prev')}>
-              <Text style={styles.navArrow}>‹</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.cameraButton} onPress={() => router.push('/notifications')}>
+              <Text style={styles.cameraIcon}>🔔</Text>
             </TouchableOpacity>
-            <Text style={styles.monthYear}>
-              {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
-            </Text>
-            <TouchableOpacity onPress={() => changeMonth('next')}>
-              <Text style={styles.navArrow}>›</Text>
+            <TouchableOpacity style={styles.cameraButton}>
+              <Text style={styles.cameraIcon}>📷</Text>
             </TouchableOpacity>
           </View>
+        </View>
 
-          {/* 요일 헤더 */}
+        {/* New Calendar Section */}
+        <View style={styles.calendarContainer}>
+          <View style={styles.monthHeader}>
+            <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthArrow}>
+              <Text style={styles.monthArrowText}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.monthYearText}>
+              {`${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월`}
+            </Text>
+            <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthArrow}>
+              <Text style={styles.monthArrowText}>›</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.weekHeader}>
             {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-              <Text key={day} style={styles.weekDay}>{day}</Text>
+              <Text key={day} style={styles.weekDayText}>{day}</Text>
             ))}
           </View>
-
-          {/* 달력 그리드 */}
           <View style={styles.calendarGrid}>
-            {calendarDays.map((date, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.calendarDay,
-                  !isCurrentMonth(date) && styles.otherMonthDay,
-                  isToday(date) && styles.today,
-                  selectedDate.getTime() === date.getTime() && styles.selectedDay
-                ]}
-                onPress={() => selectDate(date)}
-              >
-                <Text style={[
-                  styles.dayText,
-                  !isCurrentMonth(date) && styles.otherMonthDayText,
-                  isToday(date) && styles.todayText
-                ]}>
-                  {date.getDate()}
-                </Text>
-                {hasTripOnDate(date) && <View style={styles.tripDot} />}
-              </TouchableOpacity>
+            {calendarData.map((date, index) => (
+              <View key={index} style={styles.dayCell}>
+                {date && (
+                  <TouchableOpacity 
+                    style={[
+                      styles.dayButton,
+                      isToday(date) && styles.todayButton,
+                      selectedDate.getTime() === date.getTime() && styles.selectedDayButton
+                    ]}
+                    onPress={() => setSelectedDate(date)}
+                  >
+                    <Text style={[
+                      styles.dayText,
+                      isToday(date) && styles.todayText,
+                      selectedDate.getTime() === date.getTime() && styles.selectedDayText
+                    ]}>
+                      {date.getDate()}
+                    </Text>
+                    {hasTripOnDate(date) && <View style={styles.tripDot} />}
+                  </TouchableOpacity>
+                )}
+              </View>
             ))}
           </View>
         </View>
 
-        {/* 여행 계획 섹션 */}
         <View style={styles.tripSection}>
-          {tripPlans.length > 0 ? (
-            tripPlans.map(trip => (
-              <TouchableOpacity
-                key={trip.id}
-                style={styles.tripCard}
-                onPress={() => goToTripDetail(trip.id)}
-              >
-                <View style={styles.tripInfo}>
-                  <Text style={styles.tripDestination}>{trip.destination}</Text>
-                  <Text style={styles.tripDates}>
-                    {trip.startDate} - {trip.endDate}
-                  </Text>
-                  <View style={styles.tripParticipants}>
-                    <Text style={styles.participantsText}>
-                      [{trip.leaderNickname}]외 {trip.participants - 1}명
-                    </Text>
-                    <View style={styles.participantIcons}>
-                      {Array.from({ length: trip.participants }, (_, i) => (
-                        <View key={i} style={styles.participantIcon} />
-                      ))}
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.tripCountdown}>
-                  <Text style={styles.countdownText}>D-{trip.daysLeft}</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#007AFF" />
           ) : (
-            <TouchableOpacity style={styles.createTripCard} onPress={goToCreateTrip}>
-              <Text style={styles.createTripIcon}>+</Text>
-              <Text style={styles.createTripTitle}>여행 계획 만들기</Text>
-              <Text style={styles.createTripSubtitle}>
-                쉽게 AI에게 여행 계획을 만들어달라고 해보세요.
-              </Text>
-            </TouchableOpacity>
+            <>
+              {categorizedTrips.ongoing.length > 0 && (
+                <View style={styles.tripCategory}>
+                  <Text style={styles.sectionTitle}>진행중인 여행</Text>
+                  {categorizedTrips.ongoing.map(trip => renderTripCard(trip, 'ongoing'))}
+                </View>
+              )}
+
+              {categorizedTrips.upcoming.length > 0 && (
+                <View style={styles.tripCategory}>
+                  <Text style={styles.sectionTitle}>대기중인 여행</Text>
+                  {categorizedTrips.upcoming.map(trip => renderTripCard(trip, 'upcoming'))}
+                </View>
+              )}
+
+              {categorizedTrips.finished.length > 0 && (
+                <View style={styles.tripCategory}>
+                  <Text style={styles.sectionTitle}>종료된 여행</Text>
+                  {categorizedTrips.finished.map(trip => renderTripCard(trip, 'finished'))}
+                </View>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
 
-      {/* 하단 네비게이션 */}
+      <TouchableOpacity 
+        style={styles.stickyCreateButton}
+        onPress={() => router.push('/create-trip')}
+      >
+        <Text style={styles.stickyCreateButtonText}>+ 새로운 여행 계획하기</Text>
+      </TouchableOpacity>
+
       <View style={styles.bottomNavigation}>
         <TouchableOpacity style={styles.navItem}>
           <Text style={styles.navIcon}>🏠</Text>
@@ -214,7 +293,7 @@ const MainPage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F7F8FA',
   },
   content: {
     flex: 1,
@@ -233,7 +312,10 @@ const styles = StyleSheet.create({
     color: '#1a365d',
   },
   titleAir: {
-    color: '#3182ce',
+    color: '#007AFF',
+  },
+  headerIcons: {
+    flexDirection: 'row',
   },
   cameraButton: {
     padding: 8,
@@ -241,89 +323,103 @@ const styles = StyleSheet.create({
   cameraIcon: {
     fontSize: 24,
   },
-  calendarSection: {
-    backgroundColor: '#3182ce',
+  calendarContainer: {
+    backgroundColor: '#ffffff',
     marginHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 30,
+    shadowColor: '#a5a5a5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  monthNavigation: {
+  monthHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 25,
   },
-  navArrow: {
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  monthYear: {
+  monthYearText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1c1c1e',
+  },
+  monthArrow: {
+    padding: 8,
+  },
+  monthArrowText: {
+    fontSize: 22,
+    color: '#8e8e93',
   },
   weekHeader: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 10,
   },
-  weekDay: {
+  weekDayText: {
     flex: 1,
     textAlign: 'center',
-    color: '#ffffff',
-    fontSize: 14,
+    fontSize: 13,
+    color: '#8e8e93',
     fontWeight: '500',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  calendarDay: {
+  dayCell: {
     width: '14.28%',
     aspectRatio: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
   },
-  otherMonthDay: {
-    opacity: 0.5,
-  },
-  today: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+  dayButton: {
     width: 36,
     height: 36,
-  },
-  selectedDay: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   dayText: {
-    color: '#ffffff',
     fontSize: 16,
-    fontWeight: '500',
+    color: '#1c1c1e',
   },
-  otherMonthDayText: {
-    color: '#cbd5e0',
+  todayButton: {
+    backgroundColor: '#ff3b30',
   },
   todayText: {
-    color: '#3182ce',
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  selectedDayButton: {
+    backgroundColor: '#007AFF',
+  },
+  selectedDayText: {
+    color: '#ffffff',
     fontWeight: 'bold',
   },
   tripDot: {
     position: 'absolute',
-    bottom: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ef4444',
+    bottom: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#007AFF',
   },
   tripSection: {
     paddingHorizontal: 20,
-    marginBottom: 100,
+    paddingBottom: 150, // Ensure scroll content is above sticky button
+  },
+  tripCategory: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a202c',
+    marginBottom: 15,
+    marginTop: 10,
   },
   tripCard: {
     backgroundColor: '#ffffff',
@@ -335,6 +431,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  finishedTripCard: {
+    backgroundColor: '#f7fafc',
   },
   tripInfo: {
     flex: 1,
@@ -350,64 +449,62 @@ const styles = StyleSheet.create({
     color: '#4a5568',
     marginBottom: 8,
   },
-  tripParticipants: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  finishedText: {
+    color: '#a0aec0',
   },
-  participantsText: {
-    fontSize: 14,
-    color: '#718096',
-    marginRight: 10,
-  },
-  participantIcons: {
-    flexDirection: 'row',
-  },
-  participantIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#cbd5e0',
-    marginRight: 4,
-  },
-  tripCountdown: {
-    backgroundColor: '#ef4444',
+  ongoingCountdown: {
+    backgroundColor: '#007AFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
-  countdownText: {
+  ongoingCountdownText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
-  createTripCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    minHeight: 120,
-    justifyContent: 'center',
+  upcomingCountdown: {
+    backgroundColor: '#ff3b30',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  createTripIcon: {
-    fontSize: 48,
-    color: '#718096',
-    marginBottom: 15,
-  },
-  createTripTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a202c',
-    marginBottom: 10,
-  },
-  createTripSubtitle: {
+  upcomingCountdownText: {
+    color: '#ffffff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  finishedCountdown: {
+    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  finishedCountdownText: {
     color: '#718096',
-    textAlign: 'center',
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  stickyCreateButton: {
+    position: 'absolute',
+    bottom: 90, // Position above the bottom nav bar
+    left: 20,
+    right: 20,
+    backgroundColor: '#007AFF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  stickyCreateButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   bottomNavigation: {
     position: 'absolute',
@@ -418,12 +515,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
-    paddingVertical: 10,
+    paddingTop: 10, // Padding for icons
+    paddingBottom: 30, // Padding for safe area on newer iPhones
+    height: 80, // Fixed height
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
   },
   navIcon: {
     fontSize: 24,

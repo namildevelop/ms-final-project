@@ -130,7 +130,15 @@ const CreateTripPage: React.FC = () => {
       duration: getTripDuration()
     });
     
-    router.push('/trip-preferences');
+    router.replace({
+      pathname: '/trip-preferences',
+      params: {
+        startDate: selectedStartDate.toISOString().split('T')[0], // YYYY-MM-DD 형식으로 변환
+        endDate: selectedEndDate.toISOString().split('T')[0],     // YYYY-MM-DD 형식으로 변환
+        country: selectedCountry,
+        region: selectedRegion,
+      }
+    });
   };
 
   // 국가 선택

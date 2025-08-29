@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { styles } from './styles';
+import { styles } from './_styles';
 
 const SignupVerify: React.FC = () => {
   const router = useRouter();

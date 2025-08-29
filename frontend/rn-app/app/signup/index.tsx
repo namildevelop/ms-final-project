@@ -10,10 +10,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { styles } from './styles';
+import { styles } from './_styles';
+import { useAuth } from '../../src/context/AuthContext';
 
 const Signup: React.FC = () => {
   const router = useRouter();
+  const { signup } = useAuth();
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,12 +100,21 @@ const Signup: React.FC = () => {
 
     setIsLoading(true);
 
-    // 백엔드 없이 즉시 인증 화면으로 이동 (코드 발송은 다음 화면에서 시뮬레이션)
-    router.push({
-      pathname: '/signup-verify',
-      params: { email }
-    });
-    setIsLoading(false);
+    try {
+      const success = await signup(email, password, nickname);
+      if (success) {
+        router.push({
+          pathname: '/signup-verify',
+          params: { email }
+        });
+      } else {
+        Alert.alert('회원가입 실패', '이미 사용 중인 이메일이거나 서버 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      Alert.alert('회원가입 오류', '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -177,6 +188,8 @@ const Signup: React.FC = () => {
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"
+            textContentType="oneTimeCode"
           />
           <TextInput
             style={styles.inputField}
@@ -190,6 +203,8 @@ const Signup: React.FC = () => {
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"
+            textContentType="oneTimeCode"
           />
           {passwordError ? <Text style={styles.errorMessage}>{passwordError}</Text> : null}
         </View>
