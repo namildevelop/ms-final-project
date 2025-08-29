@@ -58,6 +58,7 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     try:
+        print(f"DEBUG: Prompt content sent to GPT: {prompt_content[:500]}...") # Log first 500 chars
         completion = client.chat.completions.create(
             model=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
             messages=messages,
@@ -71,10 +72,12 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
         )
         
         gpt_response_content = completion.choices[0].message.content
+        print(f"DEBUG: Raw GPT response content: {gpt_response_content[:500]}...") # Log raw response
         
         # Attempt to parse the JSON response
         try:
             parsed_plan = json.loads(gpt_response_content)
+            print(f"DEBUG: Successfully parsed GPT response.")
             return parsed_plan
         except json.JSONDecodeError:
             print(f"Warning: GPT response was not valid JSON: {gpt_response_content}")

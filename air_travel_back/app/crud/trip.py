@@ -4,7 +4,9 @@ from app.schemas.trip import TripCreate
 import json
 from sqlalchemy.orm import joinedload
 from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
-from app.crud.user import get_user_by_username # Import user lookup function
+from app.crud.user import get_user_by_email
+from app.crud.chat import create_chat_message
+from datetime import datetime, timezone
 
 def create_trip(db: Session, trip: TripCreate, creator_id: int):
     db_trip = Trip(
@@ -24,18 +26,18 @@ def create_trip(db: Session, trip: TripCreate, creator_id: int):
     # Add creator as a trip member
     db.add(TripMember(trip_id=db_trip.id, user_id=creator_id, role="creator"))
 
-    # Add invited members by username
-    if trip.invited_member_usernames:
-        creator_username = db.query(User).filter(User.id == creator_id).first().username
-        for username in trip.invited_member_usernames:
-            if username == creator_username:
+    # Add invited members by email
+    if trip.invited_member_emails:
+        creator_email = db.query(User).filter(User.id == creator_id).first().email
+        for email in trip.invited_member_emails:
+            if email == creator_email:
                 continue
-            user_to_invite = get_user_by_username(db, username=username)
+            user_to_invite = get_user_by_email(db, email=email)
             if user_to_invite:
                 db.add(TripMember(trip_id=db_trip.id, user_id=user_to_invite.id, role="member"))
             else:
-                # Handle case where username is not found
-                print(f"Warning: User '{username}' not found for invitation.")
+                # Handle case where email is not found
+                print(f"Warning: User with email '{email}' not found for invitation.")
     
     # Add interests
     if trip.interests:
@@ -46,6 +48,28 @@ def create_trip(db: Session, trip: TripCreate, creator_id: int):
     db.refresh(db_trip)
 
     return db_trip
+
+def add_trip_member(db: Session, trip_id: int, user_id: int):
+    """Adds a user to a trip as a member."""
+    # Check if user is already a member
+    existing_member = db.query(TripMember).filter(
+        TripMember.trip_id == trip_id,
+        TripMember.user_id == user_id
+    ).first()
+
+    if existing_member:
+        return None
+
+    db_member = TripMember(
+        trip_id=trip_id,
+        user_id=user_id,
+        role="member"
+    )
+    db.add(db_member)
+    db.commit()
+    db.refresh(db_member)
+    return db_member
+
 
 def generate_and_save_trip_plan(db: Session, trip_id: int):
     """
@@ -90,18 +114,6 @@ def get_trip_by_id(db: Session, trip_id: int):
 def get_trips_by_user_id(db: Session, user_id: int):
     return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).all()
 
-def create_chat_message(db: Session, trip_id: int, sender_id: int, message: str, is_from_gpt: bool = False):
-    db_chat = TripChat(
-        trip_id=trip_id,
-        sender_id=sender_id,
-        message=message,
-        is_from_gpt=is_from_gpt
-    )
-    db.add(db_chat)
-    return db_chat
-
-def get_chat_messages(db: Session, trip_id: int):
-    return db.query(TripChat).filter(TripChat.trip_id == trip_id).order_by(TripChat.created_at).all()
 
 def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, current_user_id: int):
     db_trip = get_trip_by_id(db, trip_id)
@@ -147,11 +159,13 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
             db.add(new_plan)
     
     # Save user prompt as a chat message
-    user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False)
+    user_message_time = datetime.now(timezone.utc)
+    user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
 
     # Save GPT response as a chat message
     gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
-    gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True)
+    gpt_message_time = datetime.now(timezone.utc) # Get a new timestamp for GPT's response
+    gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True, created_at=gpt_message_time)
 
     db.commit()
     db.refresh(user_chat_message)

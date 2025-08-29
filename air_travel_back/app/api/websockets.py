@@ -20,9 +20,10 @@ class ConnectionManager:
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
-    async def broadcast(self, trip_id: int, message: str):
+    async def broadcast(self, trip_id: int, message: str, exclude_websocket: WebSocket | None = None):
         if trip_id in self.active_connections:
             for connection in self.active_connections[trip_id]:
-                await connection.send_text(message)
+                if connection != exclude_websocket:
+                    await connection.send_text(message)
 
 manager = ConnectionManager()

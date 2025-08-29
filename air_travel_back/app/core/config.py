@@ -12,7 +12,7 @@ class Settings:
 
     # Azure OpenAI Settings
     AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")
-    AZURE_OPENAI_ENDPOINT: str = "https://t2-openai.openai.azure.com/"
+    AZURE_OPENAI_ENDPOINT: str = "https://team2-openai.openai.azure.com/"
     AZURE_OPENAI_DEPLOYMENT_NAME: str = "gpt-4.1"
 
 settings = Settings()
