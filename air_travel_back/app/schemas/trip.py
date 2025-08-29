@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator, ConfigDict
+from pydantic import BaseModel, validator, ConfigDict, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 import json
@@ -18,7 +18,7 @@ class TripCreate(BaseModel):
     transport_method: Optional[str] = None
     accommodation: Optional[str] = None
     trend: bool = False
-    invited_member_usernames: Optional[List[str]] = []
+    invited_member_emails: Optional[List[EmailStr]] = []
     interests: Optional[List[str]] = []
 
 class TripResponse(BaseModel):
@@ -34,6 +34,9 @@ class TripResponse(BaseModel):
     accommodation: Optional[str] = None
     trend: bool
     created_at: datetime
+
+class TripMemberCreate(BaseModel):
+    user_id: int
 
 class TripMemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
