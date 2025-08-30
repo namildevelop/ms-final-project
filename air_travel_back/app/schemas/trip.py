@@ -1,15 +1,15 @@
-from pydantic import BaseModel, validator, ConfigDict, EmailStr
-from typing import Optional, List, Dict, Any
-from datetime import date, datetime
-import json
+from pydantic import BaseModel, ConfigDict, EmailStr
+from typing import Optional, List
+from datetime import date, datetime, time
 
-# New simplified User model for nested responses
+# --- Base Schemas ---
+
 class UserSimpleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     nickname: str
 
-class TripCreate(BaseModel):
+class TripBase(BaseModel):
     title: str
     start_date: date
     end_date: date
@@ -18,25 +18,48 @@ class TripCreate(BaseModel):
     transport_method: Optional[str] = None
     accommodation: Optional[str] = None
     trend: bool = False
+
+class TripItineraryItemBase(BaseModel):
+    day: int
+    order_in_day: int
+    place_name: str
+    description: Optional[str] = None
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+
+# --- Create Schemas ---
+
+class TripCreate(TripBase):
     invited_member_emails: Optional[List[EmailStr]] = []
     interests: Optional[List[str]] = []
 
-class TripResponse(BaseModel):
+class TripMemberCreate(BaseModel):
+    user_id: int
+
+class TripItineraryItemCreate(TripItineraryItemBase):
+    pass
+
+class TripChatCreate(BaseModel):
+    message: str
+    is_from_gpt: bool = False
+
+# --- Update Schemas ---
+
+class TripItineraryItemUpdate(BaseModel):
+    day: Optional[int] = None
+    order_in_day: Optional[int] = None
+    place_name: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+
+# --- Response Schemas ---
+
+class TripResponse(TripBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     creator_id: int
-    title: str
-    start_date: date
-    end_date: date
-    destination_country: str
-    destination_city: Optional[str] = None
-    transport_method: Optional[str] = None
-    accommodation: Optional[str] = None
-    trend: bool
     created_at: datetime
-
-class TripMemberCreate(BaseModel):
-    user_id: int
 
 class TripMemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -52,31 +75,18 @@ class TripInterestResponse(BaseModel):
     trip_id: int
     interest: str
 
-class TripPlanResponse(BaseModel):
+class TripItineraryItemResponse(TripItineraryItemBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     trip_id: int
-    content: Dict[str, Any]
     created_at: datetime
-
-    @validator('content', pre=True, allow_reuse=True)
-    def parse_content_json(cls, v):
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                raise ValueError('Content is not valid JSON string')
-        return v
-
-class TripChatCreate(BaseModel):
-    message: str
-    is_from_gpt: bool = False
+    updated_at: datetime
 
 class TripChatResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     trip_id: int
-    sender: Optional[UserSimpleResponse] = None # Replaced sender_id
+    sender: Optional[UserSimpleResponse] = None
     message: str
     is_from_gpt: bool
     created_at: datetime
@@ -84,5 +94,5 @@ class TripChatResponse(BaseModel):
 class TripFullResponse(TripResponse):
     members: List[TripMemberResponse] = []
     interests: List[TripInterestResponse] = []
-    plans: List[TripPlanResponse] = []
+    itinerary_items: List[TripItineraryItemResponse] = []
     chats: List[TripChatResponse] = []

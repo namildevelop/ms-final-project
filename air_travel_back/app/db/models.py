@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, Boolean, ForeignKey, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -41,7 +41,7 @@ class Trip(Base):
     creator = relationship("User", back_populates="trips_created")
     members = relationship("TripMember", back_populates="trip")
     interests = relationship("TripInterest", back_populates="trip")
-    plans = relationship("TripPlan", back_populates="trip")
+    itinerary_items = relationship("TripItineraryItem", back_populates="trip", cascade="all, delete-orphan")
     chats = relationship("TripChat", back_populates="trip", order_by="TripChat.created_at")
 
 class TripMember(Base):
@@ -65,15 +65,21 @@ class TripInterest(Base):
 
     trip = relationship("Trip", back_populates="interests")
 
-class TripPlan(Base):
-    __tablename__ = "trip_plans"
+class TripItineraryItem(Base):
+    __tablename__ = "trip_itinerary_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"))
-    content = Column(Text, nullable=False) # Storing JSON as Text for simplicity, will parse/dump
+    trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False)
+    day = Column(Integer, nullable=False)
+    order_in_day = Column(Integer, nullable=False)
+    place_name = Column(String(255), nullable=False)
+    description = Column(Text)
+    start_time = Column(Time)
+    end_time = Column(Time)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    trip = relationship("Trip", back_populates="plans")
+    trip = relationship("Trip", back_populates="itinerary_items")
 
 class TripChat(Base):
     __tablename__ = "trip_chats"

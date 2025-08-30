@@ -1,12 +1,10 @@
-from sqlalchemy.orm import Session
-from app.db.models import Trip, TripMember, TripInterest, TripPlan, User, TripChat
-from app.schemas.trip import TripCreate
-import json
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
+from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem
+from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate
 from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
 from app.crud.user import get_user_by_email
 from app.crud.chat import create_chat_message
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 
 def create_trip(db: Session, trip: TripCreate, creator_id: int):
     db_trip = Trip(
@@ -36,7 +34,6 @@ def create_trip(db: Session, trip: TripCreate, creator_id: int):
             if user_to_invite:
                 db.add(TripMember(trip_id=db_trip.id, user_id=user_to_invite.id, role="member"))
             else:
-                # Handle case where email is not found
                 print(f"Warning: User with email '{email}' not found for invitation.")
     
     # Add interests
@@ -50,8 +47,6 @@ def create_trip(db: Session, trip: TripCreate, creator_id: int):
     return db_trip
 
 def add_trip_member(db: Session, trip_id: int, user_id: int):
-    """Adds a user to a trip as a member."""
-    # Check if user is already a member
     existing_member = db.query(TripMember).filter(
         TripMember.trip_id == trip_id,
         TripMember.user_id == user_id
@@ -70,18 +65,12 @@ def add_trip_member(db: Session, trip_id: int, user_id: int):
     db.refresh(db_member)
     return db_member
 
-
 def generate_and_save_trip_plan(db: Session, trip_id: int):
-    """
-    Fetches trip details, generates a plan with GPT, and saves it to the database.
-    This is intended to be run in a background task.
-    """
     db_trip = db.query(Trip).options(joinedload(Trip.interests)).filter(Trip.id == trip_id).first()
     if not db_trip:
         print(f"Error: Trip with ID {trip_id} not found for plan generation.")
         return
 
-    # Prepare data for GPT
     trip_data_for_gpt = {
         "title": db_trip.title,
         "start_date": str(db_trip.start_date),
@@ -94,38 +83,90 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
         "interests": [interest.interest for interest in db_trip.interests]
     }
 
-    # Call GPT Integration
-    gpt_generated_plan_content = generate_trip_plan_with_gpt(trip_data_for_gpt)
+    # IMPORTANT: The function `generate_trip_plan_with_gpt` in `services/openai.py` MUST be updated.
+    # It should now return a JSON object with an "itinerary" key, which is a list of dictionaries.
+    # Each dictionary should match the structure of TripItineraryItem (day, order_in_day, place_name, etc.).
+    # Example: {"itinerary": [{"day": 1, "order_in_day": 1, "place_name": "Eiffel Tower", ...}]}
+    gpt_response = generate_trip_plan_with_gpt(trip_data_for_gpt)
 
-    # Save the new plan
-    db_trip_plan = TripPlan(
-        trip_id=db_trip.id,
-        content=json.dumps(gpt_generated_plan_content)
-    )
-    db.add(db_trip_plan)
+    itinerary_items = gpt_response.get("itinerary", [])
+    for item_data in itinerary_items:
+        # Convert string times to time objects if they exist
+        start_time = datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None
+        end_time = datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None
+
+        db_item = TripItineraryItem(
+            trip_id=trip_id,
+            day=item_data['day'],
+            order_in_day=item_data['order_in_day'],
+            place_name=item_data['place_name'],
+            description=item_data.get('description'),
+            start_time=start_time,
+            end_time=end_time
+        )
+        db.add(db_item)
+    
     db.commit()
-    db.refresh(db_trip_plan)
-    print(f"Successfully generated and saved plan for trip {trip_id}")
-
+    print(f"Successfully generated and saved itinerary items for trip {trip_id}")
 
 def get_trip_by_id(db: Session, trip_id: int):
-    return db.query(Trip).options(joinedload(Trip.members), joinedload(Trip.interests), joinedload(Trip.plans), joinedload(Trip.chats)).filter(Trip.id == trip_id).first()
+    return db.query(Trip).options(
+        joinedload(Trip.members),
+        joinedload(Trip.interests),
+        joinedload(Trip.itinerary_items), # Updated from plans to itinerary_items
+        joinedload(Trip.chats)
+    ).filter(Trip.id == trip_id).first()
 
 def get_trips_by_user_id(db: Session, user_id: int):
     return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).all()
 
+def get_itinerary_item(db: Session, item_id: int):
+    return db.query(TripItineraryItem).filter(TripItineraryItem.id == item_id).first()
+
+def create_itinerary_item(db: Session, trip_id: int, item: TripItineraryItemCreate):
+    db_item = TripItineraryItem(**item.model_dump(), trip_id=trip_id)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def update_itinerary_item(db: Session, item_id: int, item_update: TripItineraryItemUpdate):
+    db_item = get_itinerary_item(db, item_id)
+    if not db_item:
+        return None
+    update_data = item_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_item, key, value)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def delete_itinerary_item(db: Session, item_id: int):
+    db_item = get_itinerary_item(db, item_id)
+    if not db_item:
+        return None
+    db.delete(db_item)
+    db.commit()
+    return db_item
 
 def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, current_user_id: int):
     db_trip = get_trip_by_id(db, trip_id)
     if not db_trip:
         return None, []
 
-    # Get current plan content
-    current_plan_content = {}
-    if db_trip.plans:
-        current_plan_content = json.loads(db_trip.plans[0].content)
+    # Convert current itinerary to a list of dicts for GPT context
+    current_plan_for_gpt = [
+        {
+            "day": item.day,
+            "order_in_day": item.order_in_day,
+            "place_name": item.place_name,
+            "description": item.description,
+            "start_time": item.start_time.strftime('%H:%M') if item.start_time else None,
+            "end_time": item.end_time.strftime('%H:%M') if item.end_time else None,
+        } for item in db_trip.itinerary_items
+    ]
 
-    # Prepare details for the new chat-focused GPT function
     trip_details_for_chat = {
         "title": db_trip.title,
         "start_date": str(db_trip.start_date),
@@ -134,37 +175,39 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         "destination_city": db_trip.destination_city,
     }
     
-    # Call the new chat-focused GPT function
     gpt_response = get_gpt_chat_response(
         trip_details=trip_details_for_chat,
-        current_plan=current_plan_content,
+        current_plan=current_plan_for_gpt, # Pass the structured plan
         user_prompt=user_prompt
     )
 
-    # Update trip plan if GPT returned a new one
+    # If GPT returns a new itinerary, replace the old one
     if "itinerary" in gpt_response and gpt_response["itinerary"]:
-        # We assume the response for a plan modification will contain the full plan
-        full_plan_response = {
-            "trip_title": db_trip.title,
-            "destination": f"{db_trip.destination_city}, {db_trip.destination_country}",
-            "duration": f"{db_trip.start_date} - {db_trip.end_date}",
-            "itinerary": gpt_response["itinerary"],
-            "notes": gpt_response.get("notes", "")
-        }
-        if db_trip.plans:
-            db_trip.plans[0].content = json.dumps(full_plan_response)
-            db.add(db_trip.plans[0])
-        else:
-            new_plan = TripPlan(trip_id=trip_id, content=json.dumps(full_plan_response))
-            db.add(new_plan)
+        # Delete old itinerary items
+        for item in db_trip.itinerary_items:
+            db.delete(item)
+        db.flush()
+
+        # Add new itinerary items
+        for item_data in gpt_response["itinerary"]:
+            start_time = datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None
+            end_time = datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None
+            db_item = TripItineraryItem(
+                trip_id=trip_id,
+                day=item_data['day'],
+                order_in_day=item_data['order_in_day'],
+                place_name=item_data['place_name'],
+                description=item_data.get('description'),
+                start_time=start_time,
+                end_time=end_time
+            )
+            db.add(db_item)
     
-    # Save user prompt as a chat message
     user_message_time = datetime.now(timezone.utc)
     user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
 
-    # Save GPT response as a chat message
     gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
-    gpt_message_time = datetime.now(timezone.utc) # Get a new timestamp for GPT's response
+    gpt_message_time = datetime.now(timezone.utc)
     gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True, created_at=gpt_message_time)
 
     db.commit()

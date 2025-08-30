@@ -1,37 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, ListRenderItemInfo
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
+import { SwipeListView } from 'react-native-swipe-list-view';
+
+// --- Interfaces ---
+interface TripItineraryItem {
+  id: number;
+  trip_id: number;
+  day: number;
+  order_in_day: number;
+  place_name: string;
+  description?: string;
+  start_time?: string;
+  end_time?: string;
+}
 
 interface ChatMessage {
   id: string | number;
   message: string;
   is_from_gpt: boolean;
-  sender?: {
-    id: string | number;
-    nickname: string;
-  };
+  sender?: { id: string | number; nickname: string; };
 }
 
 interface TripDetails {
-  plans?: Array<{
-    content?: {
-      itinerary?: Array<{
-        date: string;
-        day: number;
-        activities: Array<{
-          location: string;
-          time: string;
-          description: string;
-        }>;
-      }>;
-    };
-  }>;
+  id: number;
   title: string;
   start_date: string;
   end_date: string;
+  itinerary_items: TripItineraryItem[];
   chats?: ChatMessage[];
 }
 
@@ -40,130 +39,119 @@ const { width } = Dimensions.get('window');
 export default function TripItineraryPage() {
   const router = useRouter();
   const { tripId } = useLocalSearchParams();
-  const { user, token, getTripDetails } = useAuth();
+  const { user, token, getTripDetails, deleteItineraryItem } = useAuth();
 
   const [tripData, setTripData] = useState<TripDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'schedule' | 'chat'>('schedule');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(1);
 
-  // Chat state
+  // Chat state (preserved)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isGptActive, setIsGptActive] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const chatFlatListRef = useRef<FlatList>(null);
 
-  // Menu state
+  // Menu state (preserved)
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(300))[0];
 
-  useEffect(() => {
+  const fetchTripData = useCallback(async () => {
     if (typeof tripId !== 'string') return;
-
-    const fetchTripData = async () => {
-      setIsLoading(true);
+    setIsLoading(true);
+    try {
       const data = await getTripDetails(tripId);
-      if (data) {
+      if (data && data.itinerary_items) {
         setTripData(data);
         setChatMessages(data.chats || []);
-        if (data.plans?.[0]?.content?.itinerary?.[0]?.date) {
-          setSelectedDate(data.plans[0].content.itinerary[0].date);
+        if (data.itinerary_items.length > 0) {
+          const earliestDay = Math.min(...data.itinerary_items.map((item: TripItineraryItem) => item.day));
+          setSelectedDay(earliestDay);
         }
       } else {
-        Alert.alert("오류", "여행 정보를 불러오는데 실패했습니다.");
-        router.back();
+        setTripData(data);
+        setChatMessages(data.chats || []);
       }
-      setIsLoading(false);
-    };
+    } catch (error) {
+      console.error("Error fetching trip data:", error);
+      Alert.alert("오류", "여행 정보를 불러오는데 실패했습니다.", [{ text: "확인", onPress: () => router.back() }]);
+    }
+    setIsLoading(false);
+  }, [tripId, getTripDetails, router]);
 
+  useEffect(() => {
     fetchTripData();
-  }, [tripId]);
+  }, [fetchTripData]);
 
-  // WebSocket useEffect
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
-
     const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => console.log('Chat WebSocket Connected');
-    ws.current.onclose = () => console.log('Chat WebSocket Disconnected');
-    ws.current.onerror = (e: Event) => console.error('Chat WebSocket Error:', (e as any).message || e);
-
+    ws.current.onopen = () => console.log('WebSocket Connected');
+    ws.current.onclose = () => console.log('WebSocket Disconnected');
     ws.current.onmessage = (event) => {
       const messageData = JSON.parse(event.data);
       if (messageData.type === 'chat_message') {
-        setChatMessages((prevMessages) => {
-          const incomingMessage = messageData.payload;
-          // Check if this message is an update to an optimistically added message
-          const existingMessageIndex = prevMessages.findIndex(
-            (msg) => msg.id === incomingMessage.id
-          );
-
-          if (existingMessageIndex > -1) {
-            // If an existing message with the same ID is found, replace it
-            const newMessages = [...prevMessages];
-            newMessages[existingMessageIndex] = incomingMessage;
-            return newMessages;
-          } else {
-            // Otherwise, it's a new message, so add it
-            return [...prevMessages, incomingMessage];
-          }
-        });
+        setChatMessages((prev) => [...prev, messageData.payload]);
       } else if (messageData.type === 'plan_update') {
-        console.log("Plan update received, handling silently.");
+        Alert.alert("일정 업데이트", "GPT에 의해 여행 일정이 업데이트되었습니다.");
+        fetchTripData();
       }
     };
+    return () => ws.current?.close();
+  }, [tripId, token, fetchTripData]);
 
-    return () => {
-      ws.current?.close();
-    };
-  }, [tripId, token]);
+  const handleDeleteItem = (itemToDelete: TripItineraryItem) => {
+    if (typeof tripId !== 'string') return;
+    Alert.alert(
+      "일정 삭제",
+      `'${itemToDelete.place_name}' 일정을 정말로 삭제하시겠습니까?`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteItineraryItem(tripId, itemToDelete.id);
+            if (result) {
+              fetchTripData();
+            } else {
+              Alert.alert("오류", "일정 삭제에 실패했습니다.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const toggleMenu = () => {
     if (isMenuOpen) {
-      Animated.timing(slideAnim, {
-        toValue: 300,
-        duration: 300,
-        useNativeDriver: false,
-      }).start(() => setIsMenuOpen(false));
+      Animated.timing(slideAnim, { toValue: 300, duration: 300, useNativeDriver: false }).start(() => setIsMenuOpen(false));
     } else {
       setIsMenuOpen(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start();
     }
   };
-
   const closeMenu = () => {
-    Animated.timing(slideAnim, {
-      toValue: 300,
-      duration: 300,
-      useNativeDriver: false,
-    }).start(() => setIsMenuOpen(false));
+    Animated.timing(slideAnim, { toValue: 300, duration: 300, useNativeDriver: false }).start(() => setIsMenuOpen(false));
   };
 
   const handleSendMessage = () => {
-    if (!chatInput.trim() || !ws.current || !user) return; // Ensure user is available
+    if (!chatInput.trim() || !ws.current || !user) return;
 
     const messageType = isGptActive ? 'gpt_prompt' : 'chat_message';
     const payload = { [isGptActive ? 'user_prompt' : 'message']: chatInput };
 
-    // Optimistically add user's message to chat
-    const tempId = Date.now() + Math.random(); // Unique temporary ID
+    const tempId = Date.now() + Math.random();
     const newMessage: ChatMessage = {
-      id: tempId, // Temporary ID
+      id: tempId,
       message: chatInput,
       is_from_gpt: false,
       sender: {
         id: user.id,
-        nickname: user.nickname, // Assuming user object has nickname
+        nickname: user.nickname,
       },
-      // Add other necessary fields like created_at if needed, or let backend fill it
     };
     setChatMessages((prevMessages) => [...prevMessages, newMessage]);
 
@@ -172,82 +160,54 @@ export default function TripItineraryPage() {
   };
 
   if (isLoading || !tripData) {
-    return (
-      <SafeAreaView style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={[styles.container, styles.centered]}><ActivityIndicator size="large" color="#007AFF" /></SafeAreaView>;
   }
 
-  const { plans, title, start_date, end_date } = tripData;
-  const itinerary = plans?.[0]?.content?.itinerary || [];
-
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowDatePicker(false);
-  };
-
-  const getCurrentDay = () => {
-    const selectedDateObj = itinerary.find(d => d.date === selectedDate);
-    return selectedDateObj ? `Day ${selectedDateObj.day}` : '';
-  };
-
-  const getCurrentSchedule = () => {
-    const selectedDateObj = itinerary.find(d => d.date === selectedDate);
-    return selectedDateObj ? selectedDateObj.activities : [];
-  };
+  const { title, start_date, end_date, itinerary_items = [] } = tripData;
+  const uniqueDays = [...new Set(itinerary_items.map(item => item.day))].sort((a, b) => a - b);
 
   const renderScheduleTab = () => (
     <View style={styles.scheduleContent}>
       <View style={styles.dateSection}>
-        <View style={styles.dateSelector}>
-          <TouchableOpacity style={styles.dateDropdown} onPress={() => setShowDatePicker(true)}>
-            <Text style={styles.dateText}>{selectedDate}</Text>
-            <Text style={styles.dropdownArrow}>▼</Text>
-          </TouchableOpacity>
-          <Text style={styles.dayText}>{getCurrentDay()}</Text>
-        </View>
-        <TouchableOpacity>
-          <Text style={styles.editRouteText}>여행 동선 편집하기</Text>
-        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {uniqueDays.map(day => (
+            <TouchableOpacity 
+              key={day}
+              style={[styles.dayButton, selectedDay === day && styles.activeDayButton]}
+              onPress={() => setSelectedDay(day)}
+            >
+              <Text style={[styles.dayButtonText, selectedDay === day && styles.activeDayButtonText]}>{`Day ${day}`}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      <View style={styles.mapContainer}>
-        <Text style={styles.mapPlaceholderText}>지도 준비중</Text>
-      </View>
-
-      <FlatList
-        data={getCurrentSchedule()}
-        keyExtractor={(item, index) => `${item.location}-${index}`}
-        renderItem={({ item }) => (
+      <SwipeListView
+        data={itinerary_items.filter((item: TripItineraryItem) => item.day === selectedDay).sort((a: TripItineraryItem, b: TripItineraryItem) => a.order_in_day - b.order_in_day)}
+        keyExtractor={(item: TripItineraryItem) => item.id.toString()}
+        renderItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
           <View style={styles.scheduleItem}>
             <View style={styles.scheduleInfo}>
-              <Text style={styles.locationText}>{item.location}</Text>
-              <Text style={styles.timeText}>{item.time} {item.description}</Text>
+              <Text style={styles.locationText}>{data.item.order_in_day}. {data.item.place_name}</Text>
+              <Text style={styles.timeText}>{data.item.start_time} - {data.item.end_time}</Text>
+              <Text style={styles.descriptionText}>{data.item.description}</Text>
             </View>
-            <TouchableOpacity style={styles.detailButton}>
-              <Text style={styles.detailButtonText}>네비 연결</Text>
+          </View>
+        )}
+        renderHiddenItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
+          <View style={styles.rowBack}>
+            <TouchableOpacity
+              style={[styles.backRightBtn, styles.backRightBtnRight]}
+              onPress={() => handleDeleteItem(data.item)}
+            >
+              <Text style={styles.backTextWhite}>삭제</Text>
             </TouchableOpacity>
           </View>
         )}
+        rightOpenValue={-75}
+        disableRightSwipe
+        ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
       />
-
-      <Modal visible={showDatePicker} transparent={true} animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowDatePicker(false)}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>날짜 선택</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}><Text style={styles.closeButton}>✕</Text></TouchableOpacity>
-            </View>
-            {itinerary.map((tripDate, index) => (
-              <TouchableOpacity key={index} style={[styles.dateOption, selectedDate === tripDate.date && styles.selectedDateOption]} onPress={() => handleDateSelect(tripDate.date)}>
-                <Text style={[styles.dateOptionText, selectedDate === tripDate.date && styles.selectedDateOptionText]}>{tripDate.date}</Text>
-                <Text style={[styles.dateOptionDay, selectedDate === tripDate.date && styles.selectedDateOptionDay]}>{`Day ${tripDate.day}`}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 
@@ -256,8 +216,8 @@ export default function TripItineraryPage() {
       <FlatList
         ref={chatFlatListRef}
         data={chatMessages}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
+        keyExtractor={(item: ChatMessage) => item.id.toString()}
+        renderItem={({ item }: { item: ChatMessage }) => {
           const isMyMessage = item.sender?.id === user?.id;
           if (item.is_from_gpt) {
             return (
@@ -336,51 +296,22 @@ export default function TripItineraryPage() {
 
       {activeTab === 'schedule' ? renderScheduleTab() : renderChatTab()}
 
-      {/* Side Menu */}
-      {isMenuOpen && (
-        <TouchableOpacity 
-          style={styles.overlay} 
-          onPress={closeMenu}
-          activeOpacity={1}
-        />
-      )}
-      <Animated.View 
-        style={[
-          styles.slideMenu,
-          {
-            transform: [{ translateX: slideAnim }]
-          }
-        ]}
-      >
+      {isMenuOpen && <TouchableOpacity style={styles.overlay} onPress={closeMenu} activeOpacity={1} />}
+      <Animated.View style={[styles.slideMenu, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.menuHeader}>
-          <TouchableOpacity onPress={closeMenu}>
-            <Text style={styles.closeButton}>✕</Text>
-          </TouchableOpacity>
+          <TouchableOpacity onPress={closeMenu}><Text style={styles.closeButton}>✕</Text></TouchableOpacity>
         </View>
         <View style={styles.menuContent}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => {
-            closeMenu();
-            router.push({ pathname: '/invite-friends', params: { tripId } });
-          }}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/invite-friends', params: { tripId } }); }}>
             <Text style={styles.menuText}>친구 초대하기</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText}>준비물 체크하기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText}>지역/기간 수정하기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText}>여행 동선 편집하기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText}>여행 삭제하기</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>지역/기간 수정하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>여행 동선 편집하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>여행 삭제하기</Text></TouchableOpacity>
         </View>
         <View style={styles.leaveTripContainer}>
-          <TouchableOpacity style={styles.leaveTripButton}>
-            <Text style={styles.leaveTripText}>이번 여행에서 나가기</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.leaveTripButton}><Text style={styles.leaveTripText}>이번 여행에서 나가기</Text></TouchableOpacity>
         </View>
       </Animated.View>
     </SafeAreaView>
@@ -388,67 +319,44 @@ export default function TripItineraryPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   backButton: { fontSize: 24, color: '#333' },
   headerTitle: { alignItems: 'center' },
-  regionText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  dateRangeText: { fontSize: 14, color: '#666', marginTop: 4 },
+  regionText: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
+  dateRangeText: { fontSize: 14, color: '#6B7280', marginTop: 4 },
   headerActions: { flexDirection: 'row', gap: 15 },
   actionButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   actionButtonText: { fontSize: 18 },
-  tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  tab: { flex: 1, paddingVertical: 15, alignItems: 'center' },
-  activeTab: { borderBottomWidth: 3, borderBottomColor: '#007AFF' },
-  tabText: { fontSize: 16, color: '#666' },
-  activeTabText: { color: '#007AFF', fontWeight: 'bold' },
-  scheduleContent: { flex: 1, padding: 20 },
-  dateSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dateDropdown: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ccc' },
-  dateText: { fontSize: 16, color: '#333' },
-  dropdownArrow: { fontSize: 16, color: '#666' },
-  dayText: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
-  editRouteText: { fontSize: 14, color: '#007AFF' },
-  mapContainer: { width: '100%', height: 200, backgroundColor: '#f8f9fa', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#e9ecef' },
-  mapPlaceholderText: { fontSize: 16, color: '#6c757d' },
-  scheduleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20, backgroundColor: '#f8f9fa', borderRadius: 12, marginBottom: 10 },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF' },
+  tab: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  activeTab: { borderBottomColor: '#3B82F6' },
+  tabText: { fontSize: 16, color: '#6B7280' },
+  activeTabText: { color: '#3B82F6', fontWeight: '600' },
+  scheduleContent: { flex: 1 },
+  dateSection: { paddingVertical: 10, paddingHorizontal: 15, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  dayButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#E5E7EB', marginRight: 10 },
+  activeDayButton: { backgroundColor: '#3B82F6' },
+  dayButtonText: { color: '#374151', fontWeight: '500' },
+  activeDayButtonText: { color: '#FFFFFF' },
+  scheduleItem: { backgroundColor: '#FFFFFF', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   scheduleInfo: { flex: 1 },
-  locationText: { fontSize: 16, fontWeight: '500', color: '#333', marginBottom: 4 },
-  timeText: { fontSize: 14, color: '#666' },
-  detailButton: { backgroundColor: '#007AFF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  detailButtonText: { color: '#fff', fontSize: 14, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, width: '80%', padding: 20, alignItems: 'center' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  closeButton: { fontSize: 24, color: '#666' },
-  dateOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingVertical: 15, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  selectedDateOption: { backgroundColor: '#e0f7fa', borderRadius: 8, borderWidth: 1, borderColor: '#007AFF' },
-  dateOptionText: { fontSize: 16, color: '#333' },
-  selectedDateOptionText: { color: '#007AFF', fontWeight: 'bold' },
-  dateOptionDay: { fontSize: 14, color: '#666' },
-  selectedDateOptionDay: { color: '#007AFF', fontWeight: 'bold' },
-  chatContent: { flex: 1, backgroundColor: '#fff' },
+  locationText: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 4 },
+  timeText: { fontSize: 14, color: '#6B7280', marginBottom: 6 },
+  descriptionText: { fontSize: 14, color: '#4B5563' },
+  rowBack: { alignItems: 'center', backgroundColor: '#EF4444', flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
+  backRightBtn: { alignItems: 'center', bottom: 0, justifyContent: 'center', position: 'absolute', top: 0, width: 75 },
+  backRightBtnRight: { backgroundColor: '#EF4444', right: 0 },
+  backTextWhite: { color: '#FFF', fontWeight: '600' },
   chatMessages: { flex: 1, padding: 10 },
   myMessageContainer: { alignSelf: 'flex-end', marginBottom: 10, alignItems: 'flex-end' },
-  myMessageBubble: { backgroundColor: '#007AFF', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
-  myMessageText: { color: '#fff', fontSize: 14 },
   otherMessageContainer: { alignSelf: 'flex-start', marginBottom: 10, alignItems: 'flex-start' },
-  profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  profileImage: { width: 25, height: 25, borderRadius: 12.5, backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  profileText: { fontSize: 14, color: '#333' },
-  nicknameText: { fontSize: 14, color: '#666' },
+  myMessageBubble: { backgroundColor: '#007AFF', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
   otherMessageBubble: { backgroundColor: '#f0f0f0', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
+  myMessageText: { color: '#fff', fontSize: 14 },
   otherMessageText: { fontSize: 14, color: '#333' },
-  gptMessageBubble: {
-    backgroundColor: '#e0f7fa', // A light blue/cyan color for distinction
-    borderRadius: 15,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    maxWidth: '80%',
-  },
+  gptMessageBubble: { backgroundColor: '#e0f7fa', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   gptButton: { backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ccc', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, height: 40, justifyContent: 'center' },
   gptButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
@@ -459,70 +367,18 @@ const styles = StyleSheet.create({
   messageInput: { fontSize: 14, color: '#333', padding: 0 },
   sendButton: { backgroundColor: '#007AFF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, height: 40, justifyContent: 'center' },
   sendButtonText: { fontSize: 18, color: '#fff' },
-  // Side Menu Styles
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1000,
-  },
-  slideMenu: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: 300,
-    backgroundColor: '#ffffff',
-    zIndex: 1001,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: -2,
-      height: 0,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  menuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  menuContent: {
-    paddingTop: 20,
-  },
-  menuItem: {
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  menuText: {
-    fontSize: 16,
-    color: '#1a202c',
-  },
-  leaveTripContainer: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
-  },
-  leaveTripButton: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  leaveTripText: {
-    fontSize: 16,
-    color: '#e53e3e',
-    textAlign: 'center',
-  },
+  profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  profileImage: { width: 25, height: 25, borderRadius: 12.5, backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  profileText: { fontSize: 14, color: '#333' },
+  nicknameText: { fontSize: 14, color: '#666' },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 },
+  slideMenu: { position: 'absolute', top: 0, bottom: 0, right: 0, width: 300, backgroundColor: '#ffffff', zIndex: 1001, shadowColor: '#000', shadowOffset: { width: -2, height: 0 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
+  menuHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  closeButton: { fontSize: 24, color: '#666' },
+  menuContent: { paddingTop: 20 },
+  menuItem: { paddingVertical: 18, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  menuText: { fontSize: 16, color: '#1a202c' },
+  leaveTripContainer: { position: 'absolute', bottom: 50, left: 20, right: 20 },
+  leaveTripButton: { paddingVertical: 15, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  leaveTripText: { fontSize: 16, color: '#e53e3e', textAlign: 'center' },
 });
