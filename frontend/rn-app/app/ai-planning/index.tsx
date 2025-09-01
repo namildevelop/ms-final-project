@@ -55,7 +55,7 @@ const AIPlanningPage: React.FC = () => {
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket Error:', error.message);
+      console.error('WebSocket Error:', error);
       Alert.alert("오류", "연결 중 문제가 발생했습니다.");
       router.replace('/main');
     };

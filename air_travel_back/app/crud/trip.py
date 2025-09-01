@@ -102,7 +102,8 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
             place_name=item_data['place_name'],
             description=item_data.get('description'),
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
+            address=item_data.get('address')
         )
         db.add(db_item)
     
@@ -164,6 +165,7 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
             "description": item.description,
             "start_time": item.start_time.strftime('%H:%M') if item.start_time else None,
             "end_time": item.end_time.strftime('%H:%M') if item.end_time else None,
+            "address": item.address
         } for item in db_trip.itinerary_items
     ]
 
@@ -199,7 +201,8 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
                 place_name=item_data['place_name'],
                 description=item_data.get('description'),
                 start_time=start_time,
-                end_time=end_time
+                end_time=end_time,
+                address=item_data.get('address')
             )
             db.add(db_item)
     

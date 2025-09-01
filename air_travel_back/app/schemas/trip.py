@@ -26,6 +26,7 @@ class TripItineraryItemBase(BaseModel):
     description: Optional[str] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
+    address: Optional[str] = None
 
 # --- Create Schemas ---
 
@@ -52,6 +53,7 @@ class TripItineraryItemUpdate(BaseModel):
     description: Optional[str] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
+    address: Optional[str] = None
 
 # --- Response Schemas ---
 
