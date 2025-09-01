@@ -54,7 +54,8 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
       "place_name": "루브르 박물관",
       "description": "모나리자를 비롯한 세계적인 예술 작품들을 감상합니다.",
       "start_time": "12:00",
-      "end_time": "15:00"
+      "end_time": "15:00",
+      "address": "프랑스 파리 루브르 박물관"
     }}
   ]
 }}

@@ -182,30 +182,18 @@ export default function TripItineraryPage() {
         </ScrollView>
       </View>
 
-      <SwipeListView
+      <FlatList
         data={itinerary_items.filter((item: TripItineraryItem) => item.day === selectedDay).sort((a: TripItineraryItem, b: TripItineraryItem) => a.order_in_day - b.order_in_day)}
         keyExtractor={(item: TripItineraryItem) => item.id.toString()}
-        renderItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
+        renderItem={({ item }: { item: TripItineraryItem }) => (
           <View style={styles.scheduleItem}>
             <View style={styles.scheduleInfo}>
-              <Text style={styles.locationText}>{data.item.order_in_day}. {data.item.place_name}</Text>
-              <Text style={styles.timeText}>{data.item.start_time} - {data.item.end_time}</Text>
-              <Text style={styles.descriptionText}>{data.item.description}</Text>
+              <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
+              <Text style={styles.timeText}>{item.start_time} - {item.end_time}</Text>
+              <Text style={styles.descriptionText}>{item.description}</Text>
             </View>
           </View>
         )}
-        renderHiddenItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
-          <View style={styles.rowBack}>
-            <TouchableOpacity
-              style={[styles.backRightBtn, styles.backRightBtnRight]}
-              onPress={() => handleDeleteItem(data.item)}
-            >
-              <Text style={styles.backTextWhite}>삭제</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        rightOpenValue={-75}
-        disableRightSwipe
         ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
       />
     </View>
@@ -307,7 +295,9 @@ export default function TripItineraryPage() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>지역/기간 수정하기</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>여행 동선 편집하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/edit-trip-itinerary', params: { tripId } }); }}>
+            <Text style={styles.menuText}>여행 동선 편집하기</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>여행 삭제하기</Text></TouchableOpacity>
         </View>
         <View style={styles.leaveTripContainer}>
