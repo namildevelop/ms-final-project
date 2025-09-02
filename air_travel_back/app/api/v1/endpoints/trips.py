@@ -184,10 +184,10 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, trip_id)
 
+    # For AI planning page: if plan is already generated when client connects, notify immediately.
     if db_trip and db_trip.itinerary_items:
-        print(f"Itinerary for trip {trip_id} already exists. Sending immediate update to connecting client.")
         await manager.send_personal_message(
-            json.dumps({"type": "plan_update", "payload": {"message": "Trip itinerary already generated!"}}),
+            json.dumps({"type": "initial_plan_ready"}),
             websocket
         )
 
@@ -225,7 +225,7 @@ async def websocket_endpoint(
             elif message_type == "gpt_prompt":
                 try:
                     with next(get_db()) as db:
-                        gpt_response, new_messages = crud_trip.process_gpt_prompt_for_trip(
+                        gpt_response, new_messages, itinerary_updated = crud_trip.process_gpt_prompt_for_trip(
                             db=db,
                             trip_id=trip_id,
                             user_prompt=payload['user_prompt'],
@@ -250,7 +250,7 @@ async def websocket_endpoint(
                             }
                             await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
-                        if "itinerary" in gpt_response:
+                        if itinerary_updated:
                             await manager.broadcast(
                                 trip_id,
                                 json.dumps({"type": "plan_update", "payload": {"message": "Trip itinerary has been updated by GPT."}})

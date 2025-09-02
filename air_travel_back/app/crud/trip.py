@@ -154,7 +154,7 @@ def delete_itinerary_item(db: Session, item_id: int):
 def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, current_user_id: int):
     db_trip = get_trip_by_id(db, trip_id)
     if not db_trip:
-        return None, []
+        return None, [], False
 
     # Convert current itinerary to a list of dicts for GPT context
     current_plan_for_gpt = [
@@ -183,15 +183,18 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         user_prompt=user_prompt
     )
 
-    # If GPT returns a new itinerary, replace the old one
-    if "itinerary" in gpt_response and gpt_response["itinerary"]:
+    itinerary_updated = False
+    new_itinerary_data = gpt_response.get("itinerary")
+
+    # Check if a new itinerary is provided AND it's different from the current one
+    if new_itinerary_data and new_itinerary_data != current_plan_for_gpt:
         # Delete old itinerary items
         for item in db_trip.itinerary_items:
             db.delete(item)
         db.flush()
 
         # Add new itinerary items
-        for item_data in gpt_response["itinerary"]:
+        for item_data in new_itinerary_data:
             start_time = datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None
             end_time = datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None
             db_item = TripItineraryItem(
@@ -205,6 +208,7 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
                 address=item_data.get('address')
             )
             db.add(db_item)
+        itinerary_updated = True
     
     user_message_time = datetime.now(timezone.utc)
     user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
@@ -217,4 +221,4 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
     db.refresh(user_chat_message)
     db.refresh(gpt_chat_message)
 
-    return gpt_response, [user_chat_message, gpt_chat_message]
+    return gpt_response, [user_chat_message, gpt_chat_message], itinerary_updated
