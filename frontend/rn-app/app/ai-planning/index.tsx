@@ -48,7 +48,7 @@ const AIPlanningPage: React.FC = () => {
 
     ws.onmessage = (event) => {
       const messageData = JSON.parse(event.data);
-      if (messageData.type === 'plan_update') {
+      if (messageData.type === 'plan_update' || messageData.type === 'initial_plan_ready') {
         console.log('Plan update received, navigating to itinerary.');
         router.replace(`/trip-itinerary/${tripId}`);
       }

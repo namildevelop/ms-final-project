@@ -37,14 +37,17 @@ export default function EditTripItineraryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(1);
 
-  const fetchTripData = useCallback(async () => {
+  const fetchTripData = useCallback(async (preserveSelectedDay = false) => {
     if (typeof tripId !== 'string') return;
     setIsLoading(true);
     try {
       const data = await getTripDetails(tripId);
       if (data && data.itinerary_items) {
         setTripData(data);
-        if (data.itinerary_items.length > 0) {
+        const newUniqueDays = [...new Set(data.itinerary_items.map((item: TripItineraryItem) => item.day))];
+        if (preserveSelectedDay && newUniqueDays.includes(selectedDay)) {
+          // Day is preserved
+        } else if (data.itinerary_items.length > 0) {
           const earliestDay = Math.min(...data.itinerary_items.map((item: TripItineraryItem) => item.day));
           setSelectedDay(earliestDay);
         }
@@ -56,11 +59,12 @@ export default function EditTripItineraryPage() {
       Alert.alert("오류", "여행 정보를 불러오는데 실패했습니다.", [{ text: "확인", onPress: () => router.back() }]);
     }
     setIsLoading(false);
-  }, [tripId, getTripDetails, router]);
+  }, [tripId, getTripDetails, router, selectedDay]);
 
   useEffect(() => {
-    fetchTripData();
-  }, [fetchTripData]);
+    fetchTripData(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDeleteItem = (itemToDelete: TripItineraryItem) => {
     if (typeof tripId !== 'string') return;
@@ -75,7 +79,7 @@ export default function EditTripItineraryPage() {
           onPress: async () => {
             const result = await deleteItineraryItem(tripId, itemToDelete.id);
             if (result) {
-              fetchTripData(); // Re-fetch data to update the list
+              fetchTripData(true); // Re-fetch data but preserve the day
             } else {
               Alert.alert("오류", "일정 삭제에 실패했습니다.");
             }

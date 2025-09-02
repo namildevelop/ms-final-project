@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, ListRenderItemInfo
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
@@ -80,9 +80,11 @@ export default function TripItineraryPage() {
     setIsLoading(false);
   }, [tripId, getTripDetails, router]);
 
-  useEffect(() => {
-    fetchTripData();
-  }, [fetchTripData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTripData();
+    }, [fetchTripData])
+  );
 
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
