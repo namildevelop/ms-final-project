@@ -1,4 +1,6 @@
-{
+require('dotenv').config();
+
+export default {
   "expo": {
     "name": "rn-app",
     "slug": "rn-app",
@@ -24,10 +26,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": process.env.GOOGLE_MAPS_API_KEY
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     }
   }
-}
+};

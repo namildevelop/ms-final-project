@@ -27,6 +27,8 @@ class TripItineraryItemBase(BaseModel):
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 # --- Create Schemas ---
 
@@ -54,6 +56,8 @@ class TripItineraryItemUpdate(BaseModel):
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 # --- Response Schemas ---
 

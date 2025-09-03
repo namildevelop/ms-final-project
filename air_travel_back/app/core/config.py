@@ -15,4 +15,7 @@ class Settings:
     AZURE_OPENAI_ENDPOINT: str = "https://team2-openai.openai.azure.com/"
     AZURE_OPENAI_DEPLOYMENT_NAME: str = "gpt-4.1"
 
+    # Google Maps API Key
+    GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
 settings = Settings()
