@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, Boolean, ForeignKey, Time
+from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, Boolean, ForeignKey, Time, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -77,6 +77,8 @@ class TripItineraryItem(Base):
     start_time = Column(Time)
     end_time = Column(Time)
     address = Column(Text)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 

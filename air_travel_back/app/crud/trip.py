@@ -1,10 +1,48 @@
 from sqlalchemy.orm import Session, joinedload
+import requests
+from typing import Optional
 from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem
 from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate
 from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
 from app.crud.user import get_user_by_email
 from app.crud.chat import create_chat_message
+from app.core.config import settings
 from datetime import datetime, timezone, time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def _geocode_address(address: str) -> Optional[dict]:
+    """Helper function to geocode an address using Google Geocoding API."""
+    if not address:
+        logger.info("No address provided, skipping geocoding.")
+        return None
+    if not settings.GOOGLE_MAPS_API_KEY:
+        logger.error("GOOGLE_MAPS_API_KEY is not set.")
+        return None
+    
+    try:
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={settings.GOOGLE_MAPS_API_KEY}"
+        logger.info(f"Geocoding URL: {url}")
+        response = requests.get(url, timeout=10) # Added timeout
+        response.raise_for_status() 
+        data = response.json()
+        logger.info(f"Geocoding response for '{address}': {data.get('status')}")
+        if data.get('status') == 'OK' and data.get('results'):
+            location = data['results'][0]['geometry']['location']
+            coords = {"latitude": location['lat'], "longitude": location['lng']}
+            logger.info(f"Successfully geocoded '{address}' to {coords}")
+            return coords
+        else:
+            logger.warning(f"Geocoding failed for '{address}'. Status: {data.get('status')}, Error: {data.get('error_message')}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Geocoding request failed for '{address}': {e}")
+    except (KeyError, IndexError) as e:
+        logger.error(f"Failed to parse geocoding response for '{address}': {e}")
+    return None
 
 def create_trip(db: Session, trip: TripCreate, creator_id: int):
     db_trip = Trip(
@@ -34,7 +72,7 @@ def create_trip(db: Session, trip: TripCreate, creator_id: int):
             if user_to_invite:
                 db.add(TripMember(trip_id=db_trip.id, user_id=user_to_invite.id, role="member"))
             else:
-                print(f"Warning: User with email '{email}' not found for invitation.")
+                logger.warning(f"User with email '{email}' not found for invitation.")
     
     # Add interests
     if trip.interests:
@@ -66,9 +104,10 @@ def add_trip_member(db: Session, trip_id: int, user_id: int):
     return db_member
 
 def generate_and_save_trip_plan(db: Session, trip_id: int):
+    logger.info(f"Starting plan generation for trip_id: {trip_id}")
     db_trip = db.query(Trip).options(joinedload(Trip.interests)).filter(Trip.id == trip_id).first()
     if not db_trip:
-        print(f"Error: Trip with ID {trip_id} not found for plan generation.")
+        logger.error(f"Trip with ID {trip_id} not found for plan generation.")
         return
 
     trip_data_for_gpt = {
@@ -83,38 +122,45 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
         "interests": [interest.interest for interest in db_trip.interests]
     }
 
-    # IMPORTANT: The function `generate_trip_plan_with_gpt` in `services/openai.py` MUST be updated.
-    # It should now return a JSON object with an "itinerary" key, which is a list of dictionaries.
-    # Each dictionary should match the structure of TripItineraryItem (day, order_in_day, place_name, etc.).
-    # Example: {"itinerary": [{"day": 1, "order_in_day": 1, "place_name": "Eiffel Tower", ...}]}
-    gpt_response = generate_trip_plan_with_gpt(trip_data_for_gpt)
+    try:
+        logger.info(f"Calling GPT for trip {trip_id}...")
+        gpt_response = generate_trip_plan_with_gpt(trip_data_for_gpt)
+        logger.info(f"Received GPT response for trip {trip_id}")
 
-    itinerary_items = gpt_response.get("itinerary", [])
-    for item_data in itinerary_items:
-        # Convert string times to time objects if they exist
-        start_time = datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None
-        end_time = datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None
+        itinerary_items = gpt_response.get("itinerary", [])
+        if not itinerary_items:
+            logger.warning(f"GPT returned no itinerary items for trip {trip_id}")
+            return
 
-        db_item = TripItineraryItem(
-            trip_id=trip_id,
-            day=item_data['day'],
-            order_in_day=item_data['order_in_day'],
-            place_name=item_data['place_name'],
-            description=item_data.get('description'),
-            start_time=start_time,
-            end_time=end_time,
-            address=item_data.get('address')
-        )
-        db.add(db_item)
-    
-    db.commit()
-    print(f"Successfully generated and saved itinerary items for trip {trip_id}")
+        for item_data in itinerary_items:
+            coords = _geocode_address(item_data.get('address'))
+            
+            db_item = TripItineraryItem(
+                trip_id=trip_id,
+                day=item_data['day'],
+                order_in_day=item_data['order_in_day'],
+                place_name=item_data['place_name'],
+                description=item_data.get('description'),
+                start_time=datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None,
+                end_time=datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None,
+                address=item_data.get('address'),
+                latitude=coords['latitude'] if coords else None,
+                longitude=coords['longitude'] if coords else None
+            )
+            db.add(db_item)
+        
+        logger.info(f"Adding {len(itinerary_items)} items to session for trip {trip_id}")
+        db.commit()
+        logger.info(f"Successfully generated and saved itinerary for trip {trip_id}")
+    except Exception as e:
+        logger.error(f"An error occurred during itinerary generation for trip {trip_id}: {e}", exc_info=True)
+        db.rollback()
 
 def get_trip_by_id(db: Session, trip_id: int):
     return db.query(Trip).options(
         joinedload(Trip.members),
         joinedload(Trip.interests),
-        joinedload(Trip.itinerary_items), # Updated from plans to itinerary_items
+        joinedload(Trip.itinerary_items),
         joinedload(Trip.chats)
     ).filter(Trip.id == trip_id).first()
 
@@ -125,7 +171,12 @@ def get_itinerary_item(db: Session, item_id: int):
     return db.query(TripItineraryItem).filter(TripItineraryItem.id == item_id).first()
 
 def create_itinerary_item(db: Session, trip_id: int, item: TripItineraryItemCreate):
-    db_item = TripItineraryItem(**item.model_dump(), trip_id=trip_id)
+    coords = _geocode_address(item.address)
+    item_data = item.model_dump()
+    item_data['latitude'] = coords['latitude'] if coords else None
+    item_data['longitude'] = coords['longitude'] if coords else None
+
+    db_item = TripItineraryItem(**item_data, trip_id=trip_id)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -136,6 +187,13 @@ def update_itinerary_item(db: Session, item_id: int, item_update: TripItineraryI
     if not db_item:
         return None
     update_data = item_update.model_dump(exclude_unset=True)
+
+    if 'address' in update_data and update_data['address'] != db_item.address:
+        logger.info(f"Address changed for item {item_id}. Re-geocoding.")
+        coords = _geocode_address(update_data['address'])
+        update_data['latitude'] = coords['latitude'] if coords else None
+        update_data['longitude'] = coords['longitude'] if coords else None
+
     for key, value in update_data.items():
         setattr(db_item, key, value)
     db.add(db_item)
@@ -152,11 +210,11 @@ def delete_itinerary_item(db: Session, item_id: int):
     return db_item
 
 def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, current_user_id: int):
+    logger.info(f"Processing GPT prompt for trip {trip_id}")
     db_trip = get_trip_by_id(db, trip_id)
     if not db_trip:
         return None, [], False
 
-    # Convert current itinerary to a list of dicts for GPT context
     current_plan_for_gpt = [
         {
             "day": item.day,
@@ -177,48 +235,56 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         "destination_city": db_trip.destination_city,
     }
     
-    gpt_response = get_gpt_chat_response(
-        trip_details=trip_details_for_chat,
-        current_plan=current_plan_for_gpt, # Pass the structured plan
-        user_prompt=user_prompt
-    )
+    try:
+        gpt_response = get_gpt_chat_response(
+            trip_details=trip_details_for_chat,
+            current_plan=current_plan_for_gpt,
+            user_prompt=user_prompt
+        )
 
-    itinerary_updated = False
-    new_itinerary_data = gpt_response.get("itinerary")
+        itinerary_updated = False
+        new_itinerary_data = gpt_response.get("itinerary")
 
-    # Check if a new itinerary is provided AND it's different from the current one
-    if new_itinerary_data and new_itinerary_data != current_plan_for_gpt:
-        # Delete old itinerary items
-        for item in db_trip.itinerary_items:
-            db.delete(item)
-        db.flush()
+        if new_itinerary_data and new_itinerary_data != current_plan_for_gpt:
+            logger.info(f"GPT returned updated itinerary for trip {trip_id}. Updating DB.")
+            # Delete old itinerary items
+            for item in db_trip.itinerary_items:
+                db.delete(item)
+            db.flush()
 
-        # Add new itinerary items
-        for item_data in new_itinerary_data:
-            start_time = datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None
-            end_time = datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None
-            db_item = TripItineraryItem(
-                trip_id=trip_id,
-                day=item_data['day'],
-                order_in_day=item_data['order_in_day'],
-                place_name=item_data['place_name'],
-                description=item_data.get('description'),
-                start_time=start_time,
-                end_time=end_time,
-                address=item_data.get('address')
-            )
-            db.add(db_item)
-        itinerary_updated = True
-    
-    user_message_time = datetime.now(timezone.utc)
-    user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
+            # Add new itinerary items
+            for item_data in new_itinerary_data:
+                coords = _geocode_address(item_data.get('address'))
+                db_item = TripItineraryItem(
+                    trip_id=trip_id,
+                    day=item_data['day'],
+                    order_in_day=item_data['order_in_day'],
+                    place_name=item_data['place_name'],
+                    description=item_data.get('description'),
+                    start_time=datetime.strptime(item_data['start_time'], '%H:%M').time() if item_data.get('start_time') else None,
+                    end_time=datetime.strptime(item_data['end_time'], '%H:%M').time() if item_data.get('end_time') else None,
+                    address=item_data.get('address'),
+                    latitude=coords['latitude'] if coords else None,
+                    longitude=coords['longitude'] if coords else None
+                )
+                db.add(db_item)
+            itinerary_updated = True
+            logger.info(f"DB updated with new itinerary for trip {trip_id}.")
+        
+        user_message_time = datetime.now(timezone.utc)
+        user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
 
-    gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
-    gpt_message_time = datetime.now(timezone.utc)
-    gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True, created_at=gpt_message_time)
+        gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
+        gpt_message_time = datetime.now(timezone.utc)
+        gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True, created_at=gpt_message_time)
 
-    db.commit()
-    db.refresh(user_chat_message)
-    db.refresh(gpt_chat_message)
+        db.commit()
+        db.refresh(user_chat_message)
+        db.refresh(gpt_chat_message)
 
-    return gpt_response, [user_chat_message, gpt_chat_message], itinerary_updated
+        return gpt_response, [gpt_chat_message], itinerary_updated
+
+    except Exception as e:
+        logger.error(f"Error processing GPT prompt for trip {trip_id}: {e}", exc_info=True)
+        db.rollback()
+        return None, [], False

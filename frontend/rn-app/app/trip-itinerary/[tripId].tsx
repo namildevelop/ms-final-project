@@ -4,7 +4,9 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { SwipeListView } from 'react-native-swipe-list-view';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { GOOGLE_MAPS_API_KEY } from '@env';
+import { styles } from './[tripId].styles'; 
 
 // --- Interfaces ---
 interface TripItineraryItem {
@@ -16,6 +18,9 @@ interface TripItineraryItem {
   description?: string;
   start_time?: string;
   end_time?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface ChatMessage {
@@ -34,7 +39,10 @@ interface TripDetails {
   chats?: ChatMessage[];
 }
 
-const { width } = Dimensions.get('window');
+interface Coordinate {
+  latitude: number;
+  longitude: number;
+}
 
 export default function TripItineraryPage() {
   const router = useRouter();
@@ -45,15 +53,19 @@ export default function TripItineraryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'schedule' | 'chat'>('schedule');
   const [selectedDay, setSelectedDay] = useState(1);
+  
+  // Map state
+  const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
+  const mapRef = useRef<MapView>(null);
 
-  // Chat state (preserved)
+  // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isGptActive, setIsGptActive] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const chatFlatListRef = useRef<FlatList>(null);
 
-  // Menu state (preserved)
+  // Menu state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(300))[0];
 
@@ -62,33 +74,58 @@ export default function TripItineraryPage() {
     setIsLoading(true);
     try {
       const data = await getTripDetails(tripId);
-      if (data && data.itinerary_items) {
+      if (data) {
         setTripData(data);
         setChatMessages(data.chats || []);
-        if (data.itinerary_items.length > 0) {
+        // Set initial selected day only once when component loads
+        if (data.itinerary_items.length > 0 && tripData === null) {
           const earliestDay = Math.min(...data.itinerary_items.map((item: TripItineraryItem) => item.day));
           setSelectedDay(earliestDay);
         }
       } else {
-        setTripData(data);
-        setChatMessages(data.chats || []);
+        setTripData(null);
+        setChatMessages([]);
       }
     } catch (error) {
       console.error("Error fetching trip data:", error);
       Alert.alert("오류", "여행 정보를 불러오는데 실패했습니다.", [{ text: "확인", onPress: () => router.back() }]);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, [tripId, getTripDetails, router]);
+  }, [tripId, getTripDetails, router]); // tripData removed from dependencies to prevent re-fetching
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTripData();
-    }, [fetchTripData])
-  );
+  useFocusEffect(useCallback(() => { fetchTripData(); }, [fetchTripData]));
 
+  // Update coordinates based on the itinerary from the backend
+  useEffect(() => {
+    if (!tripData) return;
+
+    const dailyItems = tripData.itinerary_items
+      .filter(item => item.day === selectedDay && item.latitude && item.longitude)
+      .sort((a, b) => a.order_in_day - b.order_in_day);
+
+    const coords = dailyItems.map(item => ({
+      latitude: item.latitude!,
+      longitude: item.longitude!,
+    }));
+
+    setCoordinates(coords);
+  }, [selectedDay, tripData]);
+
+  // Fit map to coordinates when they change or when the tab becomes active
+  useEffect(() => {
+    if (activeTab === 'schedule' && coordinates.length > 0 && mapRef.current) {
+      mapRef.current.fitToCoordinates(coordinates, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  }, [coordinates, activeTab]);
+
+  // WebSocket connection
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
-    const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://192.168.0.9:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
     ws.current.onopen = () => console.log('WebSocket Connected');
     ws.current.onclose = () => console.log('WebSocket Disconnected');
@@ -167,9 +204,49 @@ export default function TripItineraryPage() {
 
   const { title, start_date, end_date, itinerary_items = [] } = tripData;
   const uniqueDays = [...new Set(itinerary_items.map(item => item.day))].sort((a, b) => a - b);
+  const dailyItinerary = itinerary_items.filter(item => item.day === selectedDay).sort((a, b) => a.order_in_day - b.order_in_day);
 
   const renderScheduleTab = () => (
     <View style={styles.scheduleContent}>
+      <View style={styles.mapContainer}>
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={{ flex: 1 }}
+          initialRegion={{
+            latitude: 37.5665,
+            longitude: 126.9780,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        >
+          {dailyItinerary.map((item) => (
+            item.latitude && item.longitude && (
+              <Marker
+                key={item.id}
+                coordinate={{
+                  latitude: item.latitude,
+                  longitude: item.longitude,
+                }}
+                anchor={{ x: 0.5, y: 1 }} // 마커의 하단 중앙에 앵커
+              >
+                <View style={styles.markerContainer}>
+                  <Text style={styles.markerText}>{item.order_in_day}</Text>
+                </View>
+                <View style={styles.markerPin} />
+              </Marker>
+            )
+          ))}
+          {coordinates.length > 1 && (
+            <Polyline
+              key={`polyline-${selectedDay}`}
+              coordinates={coordinates}
+              strokeColor="#db4040"
+              strokeWidth={3}
+            />
+          )}
+        </MapView>
+      </View>
       <View style={styles.dateSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {uniqueDays.map(day => (
@@ -185,9 +262,9 @@ export default function TripItineraryPage() {
       </View>
 
       <FlatList
-        data={itinerary_items.filter((item: TripItineraryItem) => item.day === selectedDay).sort((a: TripItineraryItem, b: TripItineraryItem) => a.order_in_day - b.order_in_day)}
-        keyExtractor={(item: TripItineraryItem) => item.id.toString()}
-        renderItem={({ item }: { item: TripItineraryItem }) => (
+        data={dailyItinerary}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
           <View style={styles.scheduleItem}>
             <View style={styles.scheduleInfo}>
               <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
@@ -202,7 +279,7 @@ export default function TripItineraryPage() {
   );
 
   const renderChatTab = () => (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={100}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={170}>
       <FlatList
         ref={chatFlatListRef}
         data={chatMessages}
@@ -284,7 +361,14 @@ export default function TripItineraryPage() {
         </TouchableOpacity>
       </View>
 
-      {activeTab === 'schedule' ? renderScheduleTab() : renderChatTab()}
+      <View style={{ flex: 1 }}>
+        <View style={{ display: activeTab === 'schedule' ? 'flex' : 'none', flex: 1 }}>
+          {renderScheduleTab()}
+        </View>
+        <View style={{ display: activeTab === 'chat' ? 'flex' : 'none', flex: 1 }}>
+          {renderChatTab()}
+        </View>
+      </View>
 
       {isMenuOpen && <TouchableOpacity style={styles.overlay} onPress={closeMenu} activeOpacity={1} />}
       <Animated.View style={[styles.slideMenu, { transform: [{ translateX: slideAnim }] }]}>
@@ -310,67 +394,3 @@ export default function TripItineraryPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  backButton: { fontSize: 24, color: '#333' },
-  headerTitle: { alignItems: 'center' },
-  regionText: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
-  dateRangeText: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  headerActions: { flexDirection: 'row', gap: 15 },
-  actionButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  actionButtonText: { fontSize: 18 },
-  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF' },
-  tab: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: '#3B82F6' },
-  tabText: { fontSize: 16, color: '#6B7280' },
-  activeTabText: { color: '#3B82F6', fontWeight: '600' },
-  scheduleContent: { flex: 1 },
-  dateSection: { paddingVertical: 10, paddingHorizontal: 15, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  dayButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#E5E7EB', marginRight: 10 },
-  activeDayButton: { backgroundColor: '#3B82F6' },
-  dayButtonText: { color: '#374151', fontWeight: '500' },
-  activeDayButtonText: { color: '#FFFFFF' },
-  scheduleItem: { backgroundColor: '#FFFFFF', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  scheduleInfo: { flex: 1 },
-  locationText: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 4 },
-  timeText: { fontSize: 14, color: '#6B7280', marginBottom: 6 },
-  descriptionText: { fontSize: 14, color: '#4B5563' },
-  rowBack: { alignItems: 'center', backgroundColor: '#EF4444', flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
-  backRightBtn: { alignItems: 'center', bottom: 0, justifyContent: 'center', position: 'absolute', top: 0, width: 75 },
-  backRightBtnRight: { backgroundColor: '#EF4444', right: 0 },
-  backTextWhite: { color: '#FFF', fontWeight: '600' },
-  chatMessages: { flex: 1, padding: 10 },
-  myMessageContainer: { alignSelf: 'flex-end', marginBottom: 10, alignItems: 'flex-end' },
-  otherMessageContainer: { alignSelf: 'flex-start', marginBottom: 10, alignItems: 'flex-start' },
-  myMessageBubble: { backgroundColor: '#007AFF', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
-  otherMessageBubble: { backgroundColor: '#f0f0f0', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
-  myMessageText: { color: '#fff', fontSize: 14 },
-  otherMessageText: { fontSize: 14, color: '#333' },
-  gptMessageBubble: { backgroundColor: '#e0f7fa', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
-  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  gptButton: { backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ccc', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, height: 40, justifyContent: 'center' },
-  gptButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  gptButtonText: { color: '#666', fontSize: 14, fontWeight: '500' },
-  gptButtonTextActive: { color: '#fff' },
-  messageInputContainer: { flex: 1, backgroundColor: '#f0f0f0', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10, minHeight: 40, justifyContent: 'center' },
-  messageInputContainerActive: { backgroundColor: '#e0f7fa', borderWidth: 1, borderColor: '#007AFF' },
-  messageInput: { fontSize: 14, color: '#333', padding: 0 },
-  sendButton: { backgroundColor: '#007AFF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, height: 40, justifyContent: 'center' },
-  sendButtonText: { fontSize: 18, color: '#fff' },
-  profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  profileImage: { width: 25, height: 25, borderRadius: 12.5, backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  profileText: { fontSize: 14, color: '#333' },
-  nicknameText: { fontSize: 14, color: '#666' },
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 },
-  slideMenu: { position: 'absolute', top: 0, bottom: 0, right: 0, width: 300, backgroundColor: '#ffffff', zIndex: 1001, shadowColor: '#000', shadowOffset: { width: -2, height: 0 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  menuHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  closeButton: { fontSize: 24, color: '#666' },
-  menuContent: { paddingTop: 20 },
-  menuItem: { paddingVertical: 18, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  menuText: { fontSize: 16, color: '#1a202c' },
-  leaveTripContainer: { position: 'absolute', bottom: 50, left: 20, right: 20 },
-  leaveTripButton: { paddingVertical: 15, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  leaveTripText: { fontSize: 16, color: '#e53e3e', textAlign: 'center' },
-});
