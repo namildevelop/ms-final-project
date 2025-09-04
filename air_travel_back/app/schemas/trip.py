@@ -59,6 +59,14 @@ class TripItineraryItemUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
+class TripItineraryItemOrderUpdate(BaseModel):
+    id: int
+    day: int
+    order_in_day: int
+
+class TripItineraryOrderUpdate(BaseModel):
+    items: List[TripItineraryItemOrderUpdate]
+
 # --- Response Schemas ---
 
 class TripResponse(TripBase):
