@@ -21,9 +21,10 @@ interface TripItineraryItem {
 }
 
 interface DayHeader {
-  id: string; // Unique ID for the header, e.g., "day-1"
+  id: string; // e.g., "day-1"
   day: number;
   type: 'DAY';
+  dateString: string;
 }
 
 type ListItem = TripItineraryItem | DayHeader;
@@ -73,16 +74,20 @@ export default function EditTripItineraryPage() {
     fetchTripData();
   }, [fetchTripData]);
 
-  // This effect transforms the flat itinerary_items from tripData into a 
-  // list with day headers, suitable for the DraggableFlatList.
+  // This effect transforms the flat itinerary_items into a list with day headers
   useEffect(() => {
     if (tripData && tripData.itinerary_items) {
       const allItems = tripData.itinerary_items;
       const uniqueDays = [...new Set(allItems.map((item) => item.day))].sort((a, b) => a - b);
-      
+      const startDate = new Date(tripData.start_date);
+
       const newListData: ListItem[] = [];
       uniqueDays.forEach(day => {
-        newListData.push({ type: 'DAY', day, id: `day-${day}` });
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + day - 1);
+        const dateString = `${currentDate.getMonth() + 1}월 ${currentDate.getDate()}일`;
+
+        newListData.push({ type: 'DAY', day, id: `day-${day}`, dateString });
         const itemsForDay = allItems
           .filter(item => item.day === day)
           .sort((a, b) => a.order_in_day - b.order_in_day);
@@ -143,27 +148,25 @@ export default function EditTripItineraryPage() {
       }));
 
       const success = await updateItineraryOrder(tripId, itemsToUpdate);
-      if (success) {
-        Alert.alert("성공", "일정 순서가 저장되었습니다.");
-      } else {
+      if (!success) {
         Alert.alert("오류", "일정 순서 저장에 실패했습니다.");
-        // Optionally, refetch data to revert optimistic update
         fetchTripData();
       }
     }
   };
 
   const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<ListItem>) => {
-    // Render a non-draggable header for day separators
     if (item.type === 'DAY') {
       return (
         <View style={styles.dayHeader}>
-          <Text style={styles.dayHeaderText}>{`Day ${item.day}`}</Text>
+          <Text style={styles.dayHeaderText}>{item.dateString}</Text>
         </View>
       );
     }
 
     const itineraryItem = item as TripItineraryItem;
+    const formatTime = (timeStr?: string) => timeStr ? timeStr.substring(0, 5) : '';
+
     const renderRightActions = () => (
       <TouchableOpacity
         style={styles.deleteButton}
@@ -179,10 +182,8 @@ export default function EditTripItineraryPage() {
           <View style={[styles.scheduleItem, isActive && styles.draggingItem]}>
             <View style={styles.scheduleInfo}>
               <Text style={styles.locationText}>{itineraryItem.place_name}</Text>
-              <Text style={styles.timeText}>{itineraryItem.start_time} - {itineraryItem.end_time}</Text>
-              <Text style={styles.descriptionText}>{itineraryItem.description}</Text>
+              <Text style={styles.timeText}>{formatTime(itineraryItem.start_time)} - {formatTime(itineraryItem.end_time)}</Text>
             </View>
-            {/* Drag handle is now on the right side */}
             <TouchableOpacity
               onLongPress={drag}
               disabled={isActive}
@@ -209,7 +210,6 @@ export default function EditTripItineraryPage() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backButton}>←</Text>
@@ -218,17 +218,25 @@ export default function EditTripItineraryPage() {
             <Text style={styles.regionText}>{title}</Text>
             <Text style={styles.dateRangeText}>{start_date} - {end_date}</Text>
           </View>
-           <View style={{ width: 24 }} />{/* Placeholder for balance */}
+           <View style={{ width: 24 }} />
         </View>
 
-        {/* The single list for all days */}
-        <DraggableFlatList
-          data={listData}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-          onDragEnd={onDragEnd}
-          ListEmptyComponent={<View style={styles.centered}><Text>이 여행의 일정이 없습니다.</Text></View>}
-        />
+        <View style={{ flex: 1 }}>
+          <DraggableFlatList
+            data={listData}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderItem}
+            onDragEnd={onDragEnd}
+            ListEmptyComponent={<View style={styles.centered}><Text>이 여행의 일정이 없습니다.</Text></View>}
+            contentContainerStyle={{ paddingBottom: 5 }} // Add padding to not hide last item
+          />
+        </View>
+
+        <View style={styles.addButtonContainer}>
+          <TouchableOpacity style={styles.addButton} onPress={() => Alert.alert("일정 추가", "일정 추가 기능은 아직 구현되지 않았습니다.")}>
+            <Text style={styles.addButtonText}>일정 추가</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -252,14 +260,16 @@ const styles = StyleSheet.create({
   regionText: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
   dateRangeText: { fontSize: 14, color: '#6B7280', marginTop: 4 },
   dayHeader: {
-    padding: 15,
-    backgroundColor: '#F3F4F6',
+    paddingTop: 20,
+    paddingBottom: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   dayHeaderText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: 'light',
     color: '#1F2937',
   },
   scheduleItem: {
@@ -267,7 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: 10,
-    paddingLeft: 20, // Indent items slightly
+    paddingLeft: 20,
     paddingRight: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
@@ -292,5 +302,28 @@ const styles = StyleSheet.create({
   deleteText: {
     color: '#FFF',
     fontWeight: '600',
+  },
+  addButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  addButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
