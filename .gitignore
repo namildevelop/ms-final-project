@@ -1,1 +1,10 @@
-.env.env
+.env
+.env.local
+.env.*.local
+
+# 오디오 파일들
+*.wav
+*.mp3
+*.flac
+audio_converted.*
+tts_output_*.wav
