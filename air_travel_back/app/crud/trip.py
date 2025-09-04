@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
 import requests
-from typing import Optional
+from typing import Optional, List
 from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem
-from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate
+from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryOrderUpdate
 from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
 from app.crud.user import get_user_by_email
 from app.crud.chat import create_chat_message
@@ -288,3 +288,33 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         logger.error(f"Error processing GPT prompt for trip {trip_id}: {e}", exc_info=True)
         db.rollback()
         return None, [], False
+
+def update_itinerary_order(db: Session, trip_id: int, order_update: TripItineraryOrderUpdate) -> List[TripItineraryItem]:
+    """
+    Bulk updates the day and order for a list of itinerary items for a specific trip.
+    """
+    updated_items = []
+    item_ids_to_update = [item.id for item in order_update.items]
+
+    # Fetch all items to be updated in a single query to ensure they belong to the trip
+    db_items_map = {
+        item.id: item for item in db.query(TripItineraryItem)
+        .filter(TripItineraryItem.trip_id == trip_id, TripItineraryItem.id.in_(item_ids_to_update))
+        .all()
+    }
+
+    if len(db_items_map) != len(item_ids_to_update):
+        logger.error(f"Mismatch in itinerary items for trip {trip_id}. Requested: {len(item_ids_to_update)}, Found: {len(db_items_map)}")
+        # Depending on requirements, you might want to raise an HTTPException here
+        # For now, we proceed with the items that were found and matched.
+    
+    for item_data in order_update.items:
+        db_item = db_items_map.get(item_data.id)
+        if db_item:
+            db_item.day = item_data.day
+            db_item.order_in_day = item_data.order_in_day
+            db.add(db_item) # Add to session to mark for update
+            updated_items.append(db_item)
+
+    db.commit()
+    return updated_items
