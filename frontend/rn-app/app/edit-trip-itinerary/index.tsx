@@ -233,7 +233,7 @@ export default function EditTripItineraryPage() {
         </View>
 
         <View style={styles.addButtonContainer}>
-          <TouchableOpacity style={styles.addButton} onPress={() => Alert.alert("일정 추가", "일정 추가 기능은 아직 구현되지 않았습니다.")}>
+          <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/add-itinerary-item', params: { tripId } })}>
             <Text style={styles.addButtonText}>일정 추가</Text>
           </TouchableOpacity>
         </View>
