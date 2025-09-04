@@ -4,6 +4,8 @@ import axios from 'axios';
 
 const API_URL = 'http://192.168.0.9:8000'; // Your backend URL
 
+// --- Interfaces ---
+
 interface SearchResultUser {
   id: number;
   email: string;
@@ -19,7 +21,18 @@ interface Notification {
   related_trip_id?: number;
 }
 
-// Define the shape of the context state
+export interface Place {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+}
+
 interface AuthState {
   token: string | null;
   authenticated: boolean;
@@ -41,6 +54,8 @@ interface AuthContextType extends AuthState {
   declineInvitation: (notificationId: number) => Promise<boolean>;
   deleteItineraryItem: (tripId: string, itemId: number) => Promise<boolean>;
   updateItineraryOrder: (tripId: string, items: { id: number; day: number; order_in_day: number }[]) => Promise<boolean>;
+  searchPlaces: (query: string) => Promise<Place[]>;
+  createItineraryItem: (tripId: string, itemData: any) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -202,6 +217,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const searchPlaces = async (query: string): Promise<Place[]> => {
+    try {
+      const response = await axios.get(`${API_URL}/v1/google-maps/search?query=${encodeURIComponent(query)}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to search places:', error);
+      return [];
+    }
+  };
+
+  const createItineraryItem = async (tripId: string, itemData: any): Promise<boolean> => {
+    try {
+      await axios.post(`${API_URL}/v1/trips/${tripId}/itinerary-items/`, itemData);
+      return true;
+    } catch (error) {
+      console.error('Failed to create itinerary item:', error);
+      return false;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -223,6 +258,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     declineInvitation,
     deleteItineraryItem,
     updateItineraryOrder,
+    searchPlaces,
+    createItineraryItem,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
