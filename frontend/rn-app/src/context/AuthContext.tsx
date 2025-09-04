@@ -40,6 +40,7 @@ interface AuthContextType extends AuthState {
   acceptInvitation: (notificationId: number) => Promise<boolean>;
   declineInvitation: (notificationId: number) => Promise<boolean>;
   deleteItineraryItem: (tripId: string, itemId: number) => Promise<boolean>;
+  updateItineraryOrder: (tripId: string, items: { id: number; day: number; order_in_day: number }[]) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -191,6 +192,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateItineraryOrder = async (tripId: string, items: { id: number; day: number; order_in_day: number }[]): Promise<boolean> => {
+    try {
+      await axios.put(`${API_URL}/v1/trips/${tripId}/itinerary/order`, { items });
+      return true;
+    } catch (error) {
+      console.error('Failed to update itinerary order:', error);
+      return false;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -211,6 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     acceptInvitation,
     declineInvitation,
     deleteItineraryItem,
+    updateItineraryOrder,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

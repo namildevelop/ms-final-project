@@ -6,7 +6,8 @@ import json
 from app.db.database import get_db
 from app.schemas.trip import (
     TripCreate, TripResponse, TripFullResponse, TripChatResponse, 
-    TripMemberCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryItemResponse
+    TripMemberCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryItemResponse,
+    TripItineraryOrderUpdate
 )
 from app.schemas.notification import NotificationResponse
 from app.crud import trip as crud_trip, chat as crud_chat
@@ -137,6 +138,24 @@ def update_itinerary_item(
         raise HTTPException(status_code=404, detail="Itinerary item not found")
 
     return crud_trip.update_itinerary_item(db=db, item_id=item_id, item_update=item_update)
+
+@router.put("/{trip_id}/itinerary/order", response_model=List[TripItineraryItemResponse])
+def update_itinerary_order(
+    trip_id: int,
+    order_update: TripItineraryOrderUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this trip's itinerary")
+
+    updated_items = crud_trip.update_itinerary_order(db=db, trip_id=trip_id, order_update=order_update)
+    return updated_items
 
 @router.delete("/{trip_id}/itinerary-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_itinerary_item(

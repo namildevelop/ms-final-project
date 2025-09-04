@@ -39,7 +39,7 @@ interface TripDetails {
 export default function EditTripItineraryPage() {
   const router = useRouter();
   const { tripId } = useLocalSearchParams();
-  const { getTripDetails, deleteItineraryItem } = useAuth();
+  const { getTripDetails, deleteItineraryItem, updateItineraryOrder } = useAuth();
 
   const [tripData, setTripData] = useState<TripDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,11 +115,9 @@ export default function EditTripItineraryPage() {
     );
   };
 
-  const onDragEnd = ({ data }: { data: ListItem[] }) => {
-    // Update the list UI immediately for a smooth experience
+  const onDragEnd = async ({ data }: { data: ListItem[] }) => {
     setListData(data);
 
-    // Process the new list to update day and order for each item
     let currentDay = -1;
     let orderInDay = 1;
     const newItineraryItems: TripItineraryItem[] = [];
@@ -127,7 +125,7 @@ export default function EditTripItineraryPage() {
     data.forEach(item => {
       if (item.type === 'DAY') {
         currentDay = item.day;
-        orderInDay = 1; // Reset order counter for the new day
+        orderInDay = 1;
       } else if (item.type === 'ITEM') {
         const updatedItem = { ...item, day: currentDay, order_in_day: orderInDay };
         newItineraryItems.push(updatedItem);
@@ -135,10 +133,23 @@ export default function EditTripItineraryPage() {
       }
     });
 
-    // Update the main tripData state. This will trigger a re-render.
-    if (tripData) {
+    if (tripData && typeof tripId === 'string') {
       setTripData({ ...tripData, itinerary_items: newItineraryItems });
-      // NOTE: A backend call to persist the new order should be made here.
+
+      const itemsToUpdate = newItineraryItems.map(item => ({
+        id: item.id,
+        day: item.day,
+        order_in_day: item.order_in_day,
+      }));
+
+      const success = await updateItineraryOrder(tripId, itemsToUpdate);
+      if (success) {
+        Alert.alert("성공", "일정 순서가 저장되었습니다.");
+      } else {
+        Alert.alert("오류", "일정 순서 저장에 실패했습니다.");
+        // Optionally, refetch data to revert optimistic update
+        fetchTripData();
+      }
     }
   };
 
