@@ -206,77 +206,81 @@ export default function TripItineraryPage() {
   const uniqueDays = [...new Set(itinerary_items.map(item => item.day))].sort((a, b) => a - b);
   const dailyItinerary = itinerary_items.filter(item => item.day === selectedDay).sort((a, b) => a.order_in_day - b.order_in_day);
 
-  const renderScheduleTab = () => (
-    <View style={styles.scheduleContent}>
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: 37.5665,
-            longitude: 126.9780,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          {dailyItinerary.map((item) => (
-            item.latitude && item.longitude && (
-              <Marker
-                key={item.id}
-                coordinate={{
-                  latitude: item.latitude,
-                  longitude: item.longitude,
-                }}
-                anchor={{ x: 0.5, y: 1 }} // 마커의 하단 중앙에 앵커
-              >
-                <View style={styles.markerContainer}>
-                  <Text style={styles.markerText}>{item.order_in_day}</Text>
-                </View>
-                <View style={styles.markerPin} />
-              </Marker>
-            )
-          ))}
-          {coordinates.length > 1 && (
-            <Polyline
-              key={`polyline-${selectedDay}`}
-              coordinates={coordinates}
-              strokeColor="#db4040"
-              strokeWidth={3}
-            />
-          )}
-        </MapView>
-      </View>
-      <View style={styles.dateSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {uniqueDays.map(day => (
-            <TouchableOpacity 
-              key={day}
-              style={[styles.dayButton, selectedDay === day && styles.activeDayButton]}
-              onPress={() => setSelectedDay(day)}
-            >
-              <Text style={[styles.dayButtonText, selectedDay === day && styles.activeDayButtonText]}>{`Day ${day}`}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+  const renderScheduleTab = () => {
+    const formatTime = (timeStr?: string) => timeStr ? timeStr.substring(0, 5) : '';
 
-      <FlatList
-        data={dailyItinerary}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.scheduleItem}>
-            <View style={styles.scheduleInfo}>
-              <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
-              <Text style={styles.timeText}>{item.start_time} - {item.end_time}</Text>
-              <Text style={styles.descriptionText}>{item.description}</Text>
+    return (
+      <View style={styles.scheduleContent}>
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
+            style={{ flex: 1 }}
+            initialRegion={{
+              latitude: 37.5665,
+              longitude: 126.9780,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          >
+            {dailyItinerary.map((item) => (
+              item.latitude && item.longitude && (
+                <Marker
+                  key={item.id}
+                  coordinate={{
+                    latitude: item.latitude,
+                    longitude: item.longitude,
+                  }}
+                  anchor={{ x: 0.5, y: 1 }} // 마커의 하단 중앙에 앵커
+                >
+                  <View style={styles.markerContainer}>
+                    <Text style={styles.markerText}>{item.order_in_day}</Text>
+                  </View>
+                  <View style={styles.markerPin} />
+                </Marker>
+              )
+            ))}
+            {coordinates.length > 1 && (
+              <Polyline
+                key={`polyline-${selectedDay}`}
+                coordinates={coordinates}
+                strokeColor="#db4040"
+                strokeWidth={3}
+              />
+            )}
+          </MapView>
+        </View>
+        <View style={styles.dateSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {uniqueDays.map(day => (
+              <TouchableOpacity 
+                key={day}
+                style={[styles.dayButton, selectedDay === day && styles.activeDayButton]}
+                onPress={() => setSelectedDay(day)}
+              >
+                <Text style={[styles.dayButtonText, selectedDay === day && styles.activeDayButtonText]}>{`Day ${day}`}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <FlatList
+          data={dailyItinerary}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.scheduleItem}>
+              <View style={styles.scheduleInfo}>
+                <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
+                <Text style={styles.timeText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text>
+                <Text style={styles.descriptionText}>{item.description}</Text>
+              </View>
             </View>
-          </View>
-        )}
-        ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
-      />
-    </View>
-  );
+          )}
+          ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
+        />
+      </View>
+    );
+  }
 
   const renderChatTab = () => (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={170}>
