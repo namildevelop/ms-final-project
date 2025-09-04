@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, SafeAreaView, ActivityIndicator, Alert, ListRenderItemInfo
+  View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { SwipeListView } from 'react-native-swipe-list-view';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
 // --- Interfaces ---
 interface TripItineraryItem {
@@ -16,7 +17,16 @@ interface TripItineraryItem {
   description?: string;
   start_time?: string;
   end_time?: string;
+  type: 'ITEM'; // To differentiate list item types
 }
+
+interface DayHeader {
+  id: string; // Unique ID for the header, e.g., "day-1"
+  day: number;
+  type: 'DAY';
+}
+
+type ListItem = TripItineraryItem | DayHeader;
 
 interface TripDetails {
   id: number;
@@ -26,8 +36,6 @@ interface TripDetails {
   itinerary_items: TripItineraryItem[];
 }
 
-const { width } = Dimensions.get('window');
-
 export default function EditTripItineraryPage() {
   const router = useRouter();
   const { tripId } = useLocalSearchParams();
@@ -35,53 +43,71 @@ export default function EditTripItineraryPage() {
 
   const [tripData, setTripData] = useState<TripDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState(1);
+  const [listData, setListData] = useState<ListItem[]>([]);
 
-  const fetchTripData = useCallback(async (preserveSelectedDay = false) => {
+  const fetchTripData = useCallback(async () => {
     if (typeof tripId !== 'string') return;
     setIsLoading(true);
     try {
       const data = await getTripDetails(tripId);
       if (data && data.itinerary_items) {
-        setTripData(data);
-        const newUniqueDays = [...new Set(data.itinerary_items.map((item: TripItineraryItem) => item.day))];
-        if (preserveSelectedDay && newUniqueDays.includes(selectedDay)) {
-          // Day is preserved
-        } else if (data.itinerary_items.length > 0) {
-          const earliestDay = Math.min(...data.itinerary_items.map((item: TripItineraryItem) => item.day));
-          setSelectedDay(earliestDay);
-        }
+        // Map the fetched items to add the 'type' property, creating new objects.
+        const itemsWithType: TripItineraryItem[] = data.itinerary_items.map((item: Omit<TripItineraryItem, 'type'>) => ({
+          ...item,
+          type: 'ITEM',
+        }));
+        setTripData({ ...data, itinerary_items: itemsWithType });
       } else {
         setTripData(data);
       }
     } catch (error) {
-      console.error("Error fetching trip data:", error);
-      Alert.alert("오류", "여행 정보를 불러오는데 실패했습니다.", [{ text: "확인", onPress: () => router.back() }]);
+      console.error('Error fetching trip data:', error);
+      Alert.alert('오류', '여행 정보를 불러오는데 실패했습니다.', [
+        { text: '확인', onPress: () => router.back() },
+      ]);
     }
     setIsLoading(false);
-  }, [tripId, getTripDetails, router, selectedDay]);
+  }, [tripId, getTripDetails, router]);
 
   useEffect(() => {
-    fetchTripData(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchTripData();
+  }, [fetchTripData]);
+
+  // This effect transforms the flat itinerary_items from tripData into a 
+  // list with day headers, suitable for the DraggableFlatList.
+  useEffect(() => {
+    if (tripData && tripData.itinerary_items) {
+      const allItems = tripData.itinerary_items;
+      const uniqueDays = [...new Set(allItems.map((item) => item.day))].sort((a, b) => a - b);
+      
+      const newListData: ListItem[] = [];
+      uniqueDays.forEach(day => {
+        newListData.push({ type: 'DAY', day, id: `day-${day}` });
+        const itemsForDay = allItems
+          .filter(item => item.day === day)
+          .sort((a, b) => a.order_in_day - b.order_in_day);
+        newListData.push(...itemsForDay);
+      });
+      setListData(newListData);
+    }
+  }, [tripData]);
 
   const handleDeleteItem = (itemToDelete: TripItineraryItem) => {
     if (typeof tripId !== 'string') return;
     Alert.alert(
-      "일정 삭제",
+      '일정 삭제',
       `'${itemToDelete.place_name}' 일정을 정말로 삭제하시겠습니까?`,
       [
-        { text: "취소", style: "cancel" },
+        { text: '취소', style: 'cancel' },
         {
-          text: "삭제",
-          style: "destructive",
+          text: '삭제',
+          style: 'destructive',
           onPress: async () => {
             const result = await deleteItineraryItem(tripId, itemToDelete.id);
             if (result) {
-              fetchTripData(true); // Re-fetch data but preserve the day
+              fetchTripData(); // Refetch data to ensure consistency
             } else {
-              Alert.alert("오류", "일정 삭제에 실패했습니다.");
+              Alert.alert('오류', '일정 삭제에 실패했습니다.');
             }
           },
         },
@@ -89,94 +115,171 @@ export default function EditTripItineraryPage() {
     );
   };
 
+  const onDragEnd = ({ data }: { data: ListItem[] }) => {
+    // Update the list UI immediately for a smooth experience
+    setListData(data);
+
+    // Process the new list to update day and order for each item
+    let currentDay = -1;
+    let orderInDay = 1;
+    const newItineraryItems: TripItineraryItem[] = [];
+
+    data.forEach(item => {
+      if (item.type === 'DAY') {
+        currentDay = item.day;
+        orderInDay = 1; // Reset order counter for the new day
+      } else if (item.type === 'ITEM') {
+        const updatedItem = { ...item, day: currentDay, order_in_day: orderInDay };
+        newItineraryItems.push(updatedItem);
+        orderInDay++;
+      }
+    });
+
+    // Update the main tripData state. This will trigger a re-render.
+    if (tripData) {
+      setTripData({ ...tripData, itinerary_items: newItineraryItems });
+      // NOTE: A backend call to persist the new order should be made here.
+    }
+  };
+
+  const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<ListItem>) => {
+    // Render a non-draggable header for day separators
+    if (item.type === 'DAY') {
+      return (
+        <View style={styles.dayHeader}>
+          <Text style={styles.dayHeaderText}>{`Day ${item.day}`}</Text>
+        </View>
+      );
+    }
+
+    const itineraryItem = item as TripItineraryItem;
+    const renderRightActions = () => (
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeleteItem(itineraryItem)}
+      >
+        <Text style={styles.deleteText}>삭제</Text>
+      </TouchableOpacity>
+    );
+
+    return (
+      <ScaleDecorator>
+        <Swipeable renderRightActions={renderRightActions}>
+          <View style={[styles.scheduleItem, isActive && styles.draggingItem]}>
+            <View style={styles.scheduleInfo}>
+              <Text style={styles.locationText}>{itineraryItem.place_name}</Text>
+              <Text style={styles.timeText}>{itineraryItem.start_time} - {itineraryItem.end_time}</Text>
+              <Text style={styles.descriptionText}>{itineraryItem.description}</Text>
+            </View>
+            {/* Drag handle is now on the right side */}
+            <TouchableOpacity
+              onLongPress={drag}
+              disabled={isActive}
+              style={styles.dragHandle}
+            >
+              <Text style={{ fontSize: 22, color: '#888' }}>≡</Text>
+            </TouchableOpacity>
+          </View>
+        </Swipeable>
+      </ScaleDecorator>
+    );
+  }, [handleDeleteItem]);
+
   if (isLoading || !tripData) {
-    return <SafeAreaView style={[styles.container, styles.centered]}><ActivityIndicator size="large" color="#007AFF" /></SafeAreaView>;
+    return (
+      <SafeAreaView style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </SafeAreaView>
+    );
   }
 
-  const { title, start_date, end_date, itinerary_items = [] } = tripData;
-  const uniqueDays = [...new Set(itinerary_items.map(item => item.day))].sort((a, b) => a - b);
+  const { title, start_date, end_date } = tripData;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backButton}>←</Text></TouchableOpacity>
-        <View style={styles.headerTitle}>
-          <Text style={styles.regionText}>{title}</Text>
-          <Text style={styles.dateRangeText}>{start_date} - {end_date}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          {/* Add any other actions specific to editing here */}
-        </View>
-      </View>
-
-      <View style={styles.scheduleContent}>
-        <View style={styles.dateSection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {uniqueDays.map(day => (
-              <TouchableOpacity 
-                key={day}
-                style={[styles.dayButton, selectedDay === day && styles.activeDayButton]}
-                onPress={() => setSelectedDay(day)}
-              >
-                <Text style={[styles.dayButtonText, selectedDay === day && styles.activeDayButtonText]}>{`Day ${day}`}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.backButton}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTitle}>
+            <Text style={styles.regionText}>{title}</Text>
+            <Text style={styles.dateRangeText}>{start_date} - {end_date}</Text>
+          </View>
+           <View style={{ width: 24 }} />{/* Placeholder for balance */}
         </View>
 
-        <SwipeListView
-          data={itinerary_items.filter((item: TripItineraryItem) => item.day === selectedDay).sort((a: TripItineraryItem, b: TripItineraryItem) => a.order_in_day - b.order_in_day)}
-          keyExtractor={(item: TripItineraryItem) => item.id.toString()}
-          renderItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
-            <View style={styles.scheduleItem}>
-              <View style={styles.scheduleInfo}>
-                <Text style={styles.locationText}>{data.item.order_in_day}. {data.item.place_name}</Text>
-                <Text style={styles.timeText}>{data.item.start_time} - {data.item.end_time}</Text>
-                <Text style={styles.descriptionText}>{data.item.description}</Text>
-              </View>
-            </View>
-          )}
-          renderHiddenItem={(data: ListRenderItemInfo<TripItineraryItem>) => (
-            <View style={styles.rowBack}>
-              <TouchableOpacity
-                style={[styles.backRightBtn, styles.backRightBtnRight]}
-                onPress={() => handleDeleteItem(data.item)}
-              >
-                <Text style={styles.backTextWhite}>삭제</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          rightOpenValue={-75}
-          disableRightSwipe
-          ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
+        {/* The single list for all days */}
+        <DraggableFlatList
+          data={listData}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          onDragEnd={onDragEnd}
+          ListEmptyComponent={<View style={styles.centered}><Text>이 여행의 일정이 없습니다.</Text></View>}
         />
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
   backButton: { fontSize: 24, color: '#333' },
   headerTitle: { alignItems: 'center' },
   regionText: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
   dateRangeText: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  headerActions: { flexDirection: 'row', gap: 15 },
-  scheduleContent: { flex: 1 },
-  dateSection: { paddingVertical: 10, paddingHorizontal: 15, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  dayButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#E5E7EB', marginRight: 10 },
-  activeDayButton: { backgroundColor: '#3B82F6' },
-  dayButtonText: { color: '#374151', fontWeight: '500' },
-  activeDayButtonText: { color: '#FFFFFF' },
-  scheduleItem: { backgroundColor: '#FFFFFF', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  dayHeader: {
+    padding: 15,
+    backgroundColor: '#F3F4F6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  dayHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  scheduleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    paddingLeft: 20, // Indent items slightly
+    paddingRight: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  draggingItem: { backgroundColor: '#E0E7FF' },
+  dragHandle: { 
+    padding: 10, 
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scheduleInfo: { flex: 1 },
   locationText: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 4 },
   timeText: { fontSize: 14, color: '#6B7280', marginBottom: 6 },
   descriptionText: { fontSize: 14, color: '#4B5563' },
-  rowBack: { alignItems: 'center', backgroundColor: '#EF4444', flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
-  backRightBtn: { alignItems: 'center', bottom: 0, justifyContent: 'center', position: 'absolute', top: 0, width: 75 },
-  backRightBtnRight: { backgroundColor: '#EF4444', right: 0 },
-  backTextWhite: { color: '#FFF', fontWeight: '600' },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 75,
+    height: '100%',
+  },
+  deleteText: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
 });
