@@ -27,6 +27,7 @@ interface ChatMessage {
   id: string | number;
   message: string;
   is_from_gpt: boolean;
+  sent_to_gpt?: boolean;
   sender?: { id: string | number; nickname: string; };
 }
 
@@ -187,6 +188,7 @@ export default function TripItineraryPage() {
       id: tempId,
       message: chatInput,
       is_from_gpt: false,
+      sent_to_gpt: isGptActive,
       sender: {
         id: user.id,
         nickname: user.nickname,
@@ -282,65 +284,84 @@ export default function TripItineraryPage() {
     );
   }
 
-  const renderChatTab = () => (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={170}>
-      <FlatList
-        ref={chatFlatListRef}
-        data={chatMessages}
-        keyExtractor={(item: ChatMessage) => item.id.toString()}
-        renderItem={({ item }: { item: ChatMessage }) => {
-          const isMyMessage = item.sender?.id === user?.id;
-          if (item.is_from_gpt) {
-            return (
-              <View style={styles.otherMessageContainer}>
-                <View style={styles.profileSection}>
-                  <View style={styles.profileImage}><Text style={styles.profileText}>G</Text></View>
-                  <Text style={styles.nicknameText}>GPT</Text>
-                </View>
-                <View style={styles.gptMessageBubble}>
-                  <Text style={styles.otherMessageText}>{item.message}</Text>
-                </View>
-              </View>
-            );
-          }
-          return (
-            <View style={isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer}>
-              {!isMyMessage && (
-                <View style={styles.profileSection}>
-                  <View style={styles.profileImage}><Text style={styles.profileText}>{item.sender?.nickname?.[0]}</Text></View>
-                  <Text style={styles.nicknameText}>{item.sender?.nickname}</Text>
-                </View>
-              )}
-              <View style={isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble}>
-                <Text style={isMyMessage ? styles.myMessageText : styles.otherMessageText}>{item.message}</Text>
-              </View>
+  const renderChatTab = () => {
+    const renderItem = ({ item }: { item: ChatMessage }) => {
+      const isMyMessage = item.sender?.id === user?.id;
+    
+      if (item.is_from_gpt) {
+        return (
+          <View style={styles.gptMessageContainer}>
+            <View style={styles.gptMessageBubble}>
+              <Text style={styles.gptMessageText}>{item.message}</Text>
             </View>
-          );
-        }}
-        style={styles.chatMessages}
-        onContentSizeChange={() => chatFlatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => chatFlatListRef.current?.scrollToEnd({ animated: false })}
-      />
-      <View style={styles.inputContainer}>
-        <TouchableOpacity style={[styles.gptButton, isGptActive && styles.gptButtonActive]} onPress={() => setIsGptActive(!isGptActive)}>
-          <Text style={[styles.gptButtonText, isGptActive && styles.gptButtonTextActive]}>GPT</Text>
-        </TouchableOpacity>
-        <View style={[styles.messageInputContainer, isGptActive && styles.messageInputContainerActive]}>
-          <TextInput
-            style={styles.messageInput}
-            placeholder={isGptActive ? "GPT에게 요청해보세요." : "메시지 입력"}
-            placeholderTextColor="#999"
-            value={chatInput}
-            onChangeText={setChatInput}
-            multiline
-          />
+          </View>
+        );
+      }
+    
+      const sentToGptTextView = item.sent_to_gpt ? (
+        <Text style={[styles.sentToGptText, isMyMessage ? { marginRight: 5 } : { marginLeft: 5 }]}>
+          Sent to GPT
+        </Text>
+      ) : null;
+    
+      if (isMyMessage) {
+        return (
+          <View style={styles.myMessageContainer}>
+            {sentToGptTextView}
+            <View style={styles.myMessageBubble}>
+              <Text style={styles.myMessageText}>{item.message}</Text>
+            </View>
+          </View>
+        );
+      } else {
+        return (
+          <View style={styles.otherMessageContainer}>
+            <View style={styles.profileSection}>
+              <View style={styles.profileImage}><Text style={styles.profileText}>{item.sender?.nickname?.[0]}</Text></View>
+              <Text style={styles.nicknameText}>{item.sender?.nickname}</Text>
+            </View>
+            {sentToGptTextView}
+            <View style={styles.otherMessageBubble}>
+              <Text style={styles.otherMessageText}>{item.message}</Text>
+            </View>
+          </View>
+        );
+      }
+    };
+
+    return (
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={170}>
+        <FlatList
+          ref={chatFlatListRef}
+          data={chatMessages}
+          keyExtractor={(item: ChatMessage) => item.id.toString()}
+          renderItem={renderItem}
+          style={styles.chatMessages}
+          onContentSizeChange={() => chatFlatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => chatFlatListRef.current?.scrollToEnd({ animated: false })}
+        />
+        <View style={styles.inputContainer}>
+          <TouchableOpacity style={[styles.gptButton, isGptActive && styles.gptButtonActive]} onPress={() => setIsGptActive(!isGptActive)}>
+            <Text style={[styles.gptButtonText, isGptActive && styles.gptButtonTextActive]}>GPT</Text>
+          </TouchableOpacity>
+          <View style={[styles.messageInputContainer, isGptActive && styles.messageInputContainerActive]}>
+            <TextInput
+              style={styles.messageInput}
+              placeholder={isGptActive ? "GPT에게 요청해보세요." : "메시지 입력"}
+              placeholderTextColor="#999"
+              value={chatInput}
+              onChangeText={setChatInput}
+              multiline
+            />
+          </View>
+          <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
+            <Text style={styles.sendButtonText}>✈️</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-          <Text style={styles.sendButtonText}>✈️</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
+      </KeyboardAvoidingView>
+    );
+  }
+
 
   return (
     <SafeAreaView style={styles.container}>

@@ -40,8 +40,27 @@ export const styles = StyleSheet.create({
   myMessageBubble: { backgroundColor: '#007AFF', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
   otherMessageBubble: { backgroundColor: '#f0f0f0', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
   myMessageText: { color: '#fff', fontSize: 14 },
+  sentToGptText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+  },
   otherMessageText: { fontSize: 14, color: '#333' },
-  gptMessageBubble: { backgroundColor: '#e0f7fa', borderRadius: 15, paddingVertical: 10, paddingHorizontal: 15, maxWidth: '80%' },
+  gptMessageContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  gptMessageBubble: { 
+    backgroundColor: '#1ABC9C', 
+    borderRadius: 15, 
+    paddingVertical: 10, 
+    paddingHorizontal: 15, 
+    maxWidth: '80%' 
+  },
+  gptMessageText: {
+    color: '#fff',
+    fontSize: 14,
+  },
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   gptButton: { backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ccc', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, height: 40, justifyContent: 'center' },
   gptButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },

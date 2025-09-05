@@ -45,6 +45,7 @@ class TripItineraryItemCreate(TripItineraryItemBase):
 class TripChatCreate(BaseModel):
     message: str
     is_from_gpt: bool = False
+    sent_to_gpt: bool = False
 
 # --- Update Schemas ---
 
@@ -103,6 +104,7 @@ class TripChatResponse(BaseModel):
     sender: Optional[UserSimpleResponse] = None
     message: str
     is_from_gpt: bool
+    sent_to_gpt: bool
     created_at: datetime
 
 class TripFullResponse(TripResponse):
