@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, ListRenderItemInfo
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, ListRenderItemInfo, Image
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
@@ -290,7 +290,14 @@ export default function TripItineraryPage() {
     
       if (item.is_from_gpt) {
         return (
-          <View style={styles.gptMessageContainer}>
+          <View style={styles.otherMessageContainer}>
+            <View style={styles.profileSection}>
+              <Image 
+                source={require('../../assets/icons8-chatgpt-500.png')} 
+                style={styles.gptProfileImage} 
+              />
+              <Text style={styles.nicknameText}>GPT</Text>
+            </View>
             <View style={styles.gptMessageBubble}>
               <Text style={styles.gptMessageText}>{item.message}</Text>
             </View>

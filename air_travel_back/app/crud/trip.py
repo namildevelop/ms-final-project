@@ -242,6 +242,8 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
             user_prompt=user_prompt
         )
 
+        print(f"DEBUG: GPT Response Content: {gpt_response}")
+
         itinerary_updated = False
         new_itinerary_data = gpt_response.get("itinerary")
 

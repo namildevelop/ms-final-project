@@ -46,20 +46,24 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   otherMessageText: { fontSize: 14, color: '#333' },
-  gptMessageContainer: {
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  gptMessageBubble: { 
-    backgroundColor: '#1ABC9C', 
-    borderRadius: 15, 
-    paddingVertical: 10, 
-    paddingHorizontal: 15, 
-    maxWidth: '80%' 
+  gptMessageBubble: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    maxWidth: '80%',
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   gptMessageText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 14,
+  },
+  gptProfileImage: {
+    width: 25,
+    height: 25,
+    borderRadius: 12.5,
+    marginRight: 8,
   },
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   gptButton: { backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ccc', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, height: 40, justifyContent: 'center' },
