@@ -1,0 +1,5 @@
+# Python packages for Azure speech translation pipeline
+azure-cognitiveservices-speech>=1.19.0
+azure-ai-translation-text>=1.0.0
+azure-core>=1.28.0
+python-dotenv>=1.0.0
