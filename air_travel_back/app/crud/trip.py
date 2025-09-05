@@ -271,15 +271,11 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
             itinerary_updated = True
             logger.info(f"DB updated with new itinerary for trip {trip_id}.")
         
-        user_message_time = datetime.now(timezone.utc)
-        user_chat_message = create_chat_message(db, trip_id, current_user_id, user_prompt, is_from_gpt=False, created_at=user_message_time)
-
         gpt_message_content = gpt_response.get("notes", "GPT가 응답했습니다.")
         gpt_message_time = datetime.now(timezone.utc)
         gpt_chat_message = create_chat_message(db, trip_id, None, gpt_message_content, is_from_gpt=True, created_at=gpt_message_time)
 
         db.commit()
-        db.refresh(user_chat_message)
         db.refresh(gpt_chat_message)
 
         return gpt_response, [gpt_chat_message], itinerary_updated

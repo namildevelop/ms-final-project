@@ -237,17 +237,49 @@ async def websocket_endpoint(
                         },
                         "message": db_chat_message.message,
                         "is_from_gpt": db_chat_message.is_from_gpt,
+                        "sent_to_gpt": db_chat_message.sent_to_gpt,
                         "created_at": db_chat_message.created_at.isoformat()
                     }
                 await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
 
             elif message_type == "gpt_prompt":
+                user_prompt = payload['user_prompt']
+                
+                # 1. Immediately save and broadcast the user's prompt
+                with next(get_db()) as db:
+                    user_chat_message = crud_chat.create_chat_message(
+                        db=db,
+                        trip_id=trip_id,
+                        sender_id=user.id,
+                        message=user_prompt,
+                        sent_to_gpt=True
+                    )
+                    db.commit()
+                    db.refresh(user_chat_message)
+                    db.refresh(user_chat_message.sender)
+                    
+                    response_payload = {
+                        "id": user_chat_message.id,
+                        "trip_id": user_chat_message.trip_id,
+                        "sender": {
+                            "id": user_chat_message.sender.id,
+                            "nickname": user_chat_message.sender.nickname
+                        },
+                        "message": user_chat_message.message,
+                        "is_from_gpt": user_chat_message.is_from_gpt,
+                        "sent_to_gpt": user_chat_message.sent_to_gpt,
+                        "created_at": user_chat_message.created_at.isoformat()
+                    }
+                    # Broadcast to others, excluding the sender
+                    await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
+
+                # 2. Process GPT response
                 try:
                     with next(get_db()) as db:
                         gpt_response, new_messages, itinerary_updated = crud_trip.process_gpt_prompt_for_trip(
                             db=db,
                             trip_id=trip_id,
-                            user_prompt=payload['user_prompt'],
+                            user_prompt=user_prompt,
                             current_user_id=user.id
                         )
 
@@ -255,7 +287,8 @@ async def websocket_endpoint(
                             await websocket.send_text(json.dumps({"type": "system_message", "payload": {"message": "Error processing GPT prompt."}}))
                             continue
 
-                        for chat in new_messages:
+                        # 3. Broadcast GPT's response to everyone
+                        for chat in new_messages: # This will now only contain the GPT message
                             response_payload = {
                                 "id": chat.id,
                                 "trip_id": chat.trip_id,
@@ -265,6 +298,7 @@ async def websocket_endpoint(
                                 },
                                 "message": chat.message,
                                 "is_from_gpt": chat.is_from_gpt,
+                                "sent_to_gpt": chat.sent_to_gpt,
                                 "created_at": chat.created_at.isoformat()
                             }
                             await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))

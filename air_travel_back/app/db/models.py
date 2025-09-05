@@ -92,6 +92,7 @@ class TripChat(Base):
     sender_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     message = Column(Text, nullable=False)
     is_from_gpt = Column(Boolean, default=False)
+    sent_to_gpt = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     trip = relationship("Trip", back_populates="chats")
