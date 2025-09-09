@@ -1,26 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, ListRenderItemInfo, Image
+  View, Text, TouchableOpacity, ScrollView, Modal, TextInput, SafeAreaView, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Alert, Animated, Image
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useAuth } from '../../src/context/AuthContext';
+import { useAuth, PlaceDetails, TripItineraryItem as TripItineraryItemWithGpt } from '../../src/context/AuthContext';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { styles } from './[tripId].styles'; 
 
 // --- Interfaces ---
-interface TripItineraryItem {
-  id: number;
-  trip_id: number;
-  day: number;
-  order_in_day: number;
-  place_name: string;
-  description?: string;
-  start_time?: string;
-  end_time?: string;
-  address?: string;
-  latitude?: number;
-  longitude?: number;
-}
+// The TripItineraryItem from context now includes gpt_description
+type TripItineraryItem = TripItineraryItemWithGpt;
 
 interface ChatMessage {
   id: string | number;
@@ -47,27 +36,30 @@ interface Coordinate {
 export default function TripItineraryPage() {
   const router = useRouter();
   const { tripId } = useLocalSearchParams();
-  const { user, token, getTripDetails, deleteItineraryItem } = useAuth();
+  const { user, token, getTripDetails, deleteItineraryItem, getPlaceDetailsByName, generateGptDescription, leaveTrip } = useAuth();
 
   const [tripData, setTripData] = useState<TripDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'schedule' | 'chat'>('schedule');
   const [selectedDay, setSelectedDay] = useState(1);
   
-  // Map state
   const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
   const mapRef = useRef<MapView>(null);
 
-  // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isGptActive, setIsGptActive] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const chatFlatListRef = useRef<FlatList>(null);
 
-  // Menu state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(300))[0];
+
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<TripItineraryItem | null>(null);
+  const [placeDetails, setPlaceDetails] = useState<PlaceDetails | null>(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+  const [isGptDescriptionLoading, setIsGptDescriptionLoading] = useState(false);
 
   const fetchTripData = useCallback(async () => {
     if (typeof tripId !== 'string') return;
@@ -77,7 +69,6 @@ export default function TripItineraryPage() {
       if (data) {
         setTripData(data);
         setChatMessages(data.chats || []);
-        // Set initial selected day only once when component loads
         if (data.itinerary_items.length > 0 && tripData === null) {
           const earliestDay = Math.min(...data.itinerary_items.map((item: TripItineraryItem) => item.day));
           setSelectedDay(earliestDay);
@@ -92,27 +83,22 @@ export default function TripItineraryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [tripId, getTripDetails, router]); // tripData removed from dependencies to prevent re-fetching
+  }, [tripId, getTripDetails, router]);
 
   useFocusEffect(useCallback(() => { fetchTripData(); }, [fetchTripData]));
 
-  // Update coordinates based on the itinerary from the backend
   useEffect(() => {
     if (!tripData) return;
-
     const dailyItems = tripData.itinerary_items
       .filter(item => item.day === selectedDay && item.latitude && item.longitude)
       .sort((a, b) => a.order_in_day - b.order_in_day);
-
     const coords = dailyItems.map(item => ({
       latitude: item.latitude!,
       longitude: item.longitude!,
     }));
-
     setCoordinates(coords);
   }, [selectedDay, tripData]);
 
-  // Fit map to coordinates when they change or when the tab becomes active
   useEffect(() => {
     if (activeTab === 'schedule' && coordinates.length > 0 && mapRef.current) {
       mapRef.current.fitToCoordinates(coordinates, {
@@ -122,7 +108,6 @@ export default function TripItineraryPage() {
     }
   }, [coordinates, activeTab]);
 
-  // WebSocket connection
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
     const wsUrl = `ws://172.30.1.67:8000/v1/trips/${tripId}/ws?token=${token}`;
@@ -140,6 +125,81 @@ export default function TripItineraryPage() {
     };
     return () => ws.current?.close();
   }, [tripId, token, fetchTripData]);
+
+  const handleItineraryItemPress = async (item: TripItineraryItem) => {
+    setSelectedItem(item);
+    setIsDetailModalVisible(true);
+    setIsModalLoading(true);
+    setPlaceDetails(null);
+
+    try {
+      const query = item.place_name || item.address;
+      const details = await getPlaceDetailsByName(query);
+      if (details) {
+        setPlaceDetails(details);
+      } else {
+        setPlaceDetails(null); 
+        Alert.alert("정보 없음", "Google에서 장소에 대한 상세 정보를 불러올 수 없습니다. 기본 정보만 표시됩니다.");
+      }
+    } catch (error) {
+      console.error("Failed to get place details:", error);
+      Alert.alert("오류", "상세 정보를 가져오는 중 오류가 발생했습니다.");
+    } finally {
+      setIsModalLoading(false);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!selectedItem || typeof tripId !== 'string') return;
+
+    setIsGptDescriptionLoading(true);
+    try {
+      const updatedItem = await generateGptDescription(tripId, selectedItem.id);
+      if (updatedItem && updatedItem.gpt_description) {
+        setTripData(prevTripData => {
+          if (!prevTripData) return null;
+          const newItineraryItems = prevTripData.itinerary_items.map(item => 
+            item.id === updatedItem.id ? updatedItem : item
+          );
+          return { ...prevTripData, itinerary_items: newItineraryItems };
+        });
+        setSelectedItem(updatedItem);
+      } else {
+        Alert.alert("오류", "AI 설명 생성에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Failed to generate description:", error);
+      Alert.alert("오류", "AI 설명 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsGptDescriptionLoading(false);
+    }
+  };
+
+  const handleLeaveTrip = () => {
+    if (typeof tripId !== 'string') return;
+
+    Alert.alert(
+      "여행 나가기",
+      "정말로 이 여행에서 나가시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "나가기",
+          style: "destructive",
+          onPress: async () => {
+            const success = await leaveTrip(tripId);
+            if (success) {
+              Alert.alert("성공", "여행에서 나갔습니다.", [
+                { text: "확인", onPress: () => router.push('/main') }
+              ]);
+            } else {
+              Alert.alert("오류", "여행 나가기에 실패했습니다.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleDeleteItem = (itemToDelete: TripItineraryItem) => {
     if (typeof tripId !== 'string') return;
@@ -178,23 +238,17 @@ export default function TripItineraryPage() {
 
   const handleSendMessage = () => {
     if (!chatInput.trim() || !ws.current || !user) return;
-
     const messageType = isGptActive ? 'gpt_prompt' : 'chat_message';
     const payload = { [isGptActive ? 'user_prompt' : 'message']: chatInput };
-
     const tempId = Date.now() + Math.random();
     const newMessage: ChatMessage = {
       id: tempId,
       message: chatInput,
       is_from_gpt: false,
       sent_to_gpt: isGptActive,
-      sender: {
-        id: user.id,
-        nickname: user.nickname,
-      },
+      sender: { id: user.id, nickname: user.nickname },
     };
     setChatMessages((prevMessages) => [...prevMessages, newMessage]);
-
     ws.current.send(JSON.stringify({ type: messageType, payload }));
     setChatInput('');
   };
@@ -217,37 +271,22 @@ export default function TripItineraryPage() {
             ref={mapRef}
             provider={PROVIDER_GOOGLE}
             style={{ flex: 1 }}
-            initialRegion={{
-              latitude: 37.5665,
-              longitude: 126.9780,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            }}
+            initialRegion={{ latitude: 37.5665, longitude: 126.9780, latitudeDelta: 0.0922, longitudeDelta: 0.0421 }}
           >
             {dailyItinerary.map((item) => (
               item.latitude && item.longitude && (
                 <Marker
                   key={item.id}
-                  coordinate={{
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                  }}
-                  anchor={{ x: 0.5, y: 1 }} // 마커의 하단 중앙에 앵커
+                  coordinate={{ latitude: item.latitude, longitude: item.longitude }}
+                  anchor={{ x: 0.5, y: 1 }}
                 >
-                  <View style={styles.markerContainer}>
-                    <Text style={styles.markerText}>{item.order_in_day}</Text>
-                  </View>
+                  <View style={styles.markerContainer}><Text style={styles.markerText}>{item.order_in_day}</Text></View>
                   <View style={styles.markerPin} />
                 </Marker>
               )
             ))}
             {coordinates.length > 1 && (
-              <Polyline
-                key={`polyline-${selectedDay}`}
-                coordinates={coordinates}
-                strokeColor="#db4040"
-                strokeWidth={3}
-              />
+              <Polyline key={`polyline-${selectedDay}`} coordinates={coordinates} strokeColor="#db4040" strokeWidth={3} />
             )}
           </MapView>
         </View>
@@ -269,13 +308,15 @@ export default function TripItineraryPage() {
           data={dailyItinerary}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <View style={styles.scheduleItem}>
-              <View style={styles.scheduleInfo}>
-                <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
-                <Text style={styles.timeText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text>
-                <Text style={styles.descriptionText}>{item.description}</Text>
+            <TouchableOpacity onPress={() => handleItineraryItemPress(item)}>
+              <View style={styles.scheduleItem}>
+                <View style={styles.scheduleInfo}>
+                  <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
+                  <Text style={styles.timeText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text>
+                  <Text style={styles.descriptionText}>{item.description}</Text>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
           ListEmptyComponent={<View style={styles.centered}><Text>이 날짜의 일정이 없습니다.</Text></View>}
         />
@@ -368,6 +409,73 @@ export default function TripItineraryPage() {
     );
   }
 
+  const renderDetailModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={false}
+      visible={isDetailModalVisible}
+      onRequestClose={() => setIsDetailModalVisible(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} style={styles.modalCloseButton}>
+            <Text style={styles.modalCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        {isModalLoading ? (
+          <View style={styles.centered}><ActivityIndicator size="large" color="#007AFF" /></View>
+        ) : (
+          <ScrollView>
+            {placeDetails?.photo_url ? (
+              <Image source={{ uri: placeDetails.photo_url }} style={styles.modalImage} />
+            ) : (
+              <View style={styles.modalImagePlaceholder} />
+            )}
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{selectedItem?.place_name}</Text>
+              
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>주소</Text>
+                <Text style={styles.modalSectionText}>{selectedItem?.address || '정보 없음'}</Text>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>운영시간</Text>
+                {placeDetails?.opening_hours ? placeDetails.opening_hours.map((line, index) => (
+                  <Text key={index} style={styles.modalSectionText}>{line}</Text>
+                )) : <Text style={styles.modalSectionText}>정보 없음</Text>}
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>전화번호</Text>
+                <Text style={styles.modalSectionText}>{placeDetails?.phone_number || '정보 없음'}</Text>
+              </View>
+              
+              {selectedItem?.description && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>GPT 추천</Text>
+                  <Text style={styles.modalSectionText}>{selectedItem.description}</Text>
+                </View>
+              )}
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>상세정보</Text>
+                {isGptDescriptionLoading ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : selectedItem?.gpt_description ? (
+                  <Text style={styles.modalSectionText}>{selectedItem.gpt_description}</Text>
+                ) : (
+                  <TouchableOpacity style={styles.generateButton} onPress={handleGenerateDescription}>
+                    <Text style={styles.generateButtonText}>AI에게 설명 요청</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -401,6 +509,8 @@ export default function TripItineraryPage() {
         </View>
       </View>
 
+      {renderDetailModal()}
+
       {isMenuOpen && <TouchableOpacity style={styles.overlay} onPress={closeMenu} activeOpacity={1} />}
       <Animated.View style={[styles.slideMenu, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.menuHeader}>
@@ -418,10 +528,9 @@ export default function TripItineraryPage() {
           <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>여행 삭제하기</Text></TouchableOpacity>
         </View>
         <View style={styles.leaveTripContainer}>
-          <TouchableOpacity style={styles.leaveTripButton}><Text style={styles.leaveTripText}>이번 여행에서 나가기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.leaveTripButton} onPress={handleLeaveTrip}><Text style={styles.leaveTripText}>이번 여행에서 나가기</Text></TouchableOpacity>
         </View>
       </Animated.View>
     </SafeAreaView>
   );
 }
-

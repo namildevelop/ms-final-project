@@ -73,6 +73,17 @@ def invite_user_to_trip(
     )
     return notification
 
+@router.delete("/{trip_id}/members/me", status_code=status.HTTP_204_NO_CONTENT)
+def leave_trip_endpoint(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    success = crud_trip.leave_trip(db=db, trip_id=trip_id, user_id=current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Membership not found or could not leave trip")
+    return
+
 @router.get("/{trip_id}", response_model=TripFullResponse)
 async def get_trip(
     trip_id: int,
@@ -175,6 +186,33 @@ def delete_itinerary_item(
     if not db_item:
         raise HTTPException(status_code=404, detail="Itinerary item not found")
     return
+
+@router.post("/{trip_id}/itinerary-items/{item_id}/generate-description", response_model=TripItineraryItemResponse)
+def generate_item_description(
+    trip_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Authorize user
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this trip's itinerary")
+
+    # Check if item belongs to trip
+    db_item = crud_trip.get_itinerary_item(db, item_id=item_id)
+    if not db_item or db_item.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Itinerary item not found in this trip")
+
+    # Generate and save description
+    updated_item = crud_trip.generate_and_save_gpt_description(db=db, item_id=item_id)
+    if not updated_item:
+        raise HTTPException(status_code=500, detail="Failed to generate description")
+
+    return updated_item
 
 
 @router.websocket("/{trip_id}/ws")

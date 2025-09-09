@@ -29,6 +29,7 @@ class TripItineraryItemBase(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    gpt_description: Optional[str] = None
 
 # --- Create Schemas ---
 
@@ -59,6 +60,7 @@ class TripItineraryItemUpdate(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    gpt_description: Optional[str] = None
 
 class TripItineraryItemOrderUpdate(BaseModel):
     id: int
@@ -75,6 +77,9 @@ class TripResponse(TripBase):
     id: int
     creator_id: int
     created_at: datetime
+
+class TripResponseWithMemberCount(TripResponse):
+    member_count: int
 
 class TripMemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -3,7 +3,7 @@ import requests
 from typing import Optional, List
 from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem
 from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryOrderUpdate
-from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response
+from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response, get_gpt_place_description
 from app.crud.user import get_user_by_email
 from app.crud.chat import create_chat_message
 from app.core.config import settings
@@ -165,7 +165,7 @@ def get_trip_by_id(db: Session, trip_id: int):
     ).filter(Trip.id == trip_id).first()
 
 def get_trips_by_user_id(db: Session, user_id: int):
-    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).all()
+    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).options(joinedload(Trip.members)).all()
 
 def get_itinerary_item(db: Session, item_id: int):
     return db.query(TripItineraryItem).filter(TripItineraryItem.id == item_id).first()
@@ -316,3 +316,65 @@ def update_itinerary_order(db: Session, trip_id: int, order_update: TripItinerar
 
     db.commit()
     return updated_items
+
+def generate_and_save_gpt_description(db: Session, item_id: int) -> Optional[TripItineraryItem]:
+    """
+    Generates a GPT description for an itinerary item and saves it to the database.
+    """
+    db_item = get_itinerary_item(db, item_id=item_id)
+    if not db_item:
+        logger.error(f"Itinerary item with ID {item_id} not found.")
+        return None
+
+    # If description already exists, no need to generate again.
+    # Although the front-end should prevent this, it's a good safeguard.
+    if db_item.gpt_description:
+        logger.info(f"GPT description for item {item_id} already exists.")
+        return db_item
+
+    try:
+        logger.info(f"Generating GPT description for place: {db_item.place_name}")
+        description = get_gpt_place_description(place_name=db_item.place_name)
+        
+        db_item.gpt_description = description
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+        logger.info(f"Successfully generated and saved GPT description for item {item_id}.")
+        return db_item
+    except Exception as e:
+        logger.error(f"An error occurred during GPT description generation for item {item_id}: {e}", exc_info=True)
+        db.rollback()
+        return None
+
+def leave_trip(db: Session, trip_id: int, user_id: int) -> bool:
+    """
+    Allows a user to leave a trip. If the user is the last member, deletes the trip.
+    """
+    # Find the specific membership record
+    db_member = db.query(TripMember).filter(
+        TripMember.trip_id == trip_id,
+        TripMember.user_id == user_id
+    ).first()
+
+    if not db_member:
+        logger.warning(f"User {user_id} is not a member of trip {trip_id}. Cannot leave.")
+        return False
+
+    # Delete the membership
+    db.delete(db_member)
+    db.commit()
+    logger.info(f"User {user_id} has left trip {trip_id}.")
+
+    # Check if there are any members left
+    remaining_members_count = db.query(TripMember).filter(TripMember.trip_id == trip_id).count()
+    
+    if remaining_members_count == 0:
+        logger.info(f"Trip {trip_id} has no members left. Deleting trip.")
+        db_trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if db_trip:
+            db.delete(db_trip)
+            db.commit()
+            logger.info(f"Trip {trip_id} has been deleted.")
+    
+    return True
