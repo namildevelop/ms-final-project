@@ -121,36 +121,45 @@ def get_gpt_chat_response(trip_details: Dict[str, Any], current_plan: List[Dict[
 "{user_prompt}"
 
 **지시사항:**
-1.  사용자의 요청이 단순히 정보를 묻는 질문이라면, `notes` 필드에 답변을 담아 응답하세요. `itinerary` 필드는 **기존 계획을 그대로** 유지해야 합니다.
-2.  사용자의 요청이 계획 수정을 요구하는 것이라면, `itinerary` 필드를 수정하여 **완전히 새로운 전체 계획**을 반영하고, `notes` 필드에 변경 사항에 대한 요약을 담아 응답하세요.
+1.  **질문/대화:** 사용자의 요청이 질문(정보성 질문 포함)이거나 일반적인 대화인 경우, `notes` 필드에만 답변을 포함하고 `itinerary` 필드는 생략한 JSON을 반환하세요.
+2.  **계획 수정:** 사용자의 요청이 계획 수정을 요구하는 것이라면(예: "에펠탑 일정을 둘째 날로 옮겨줘", "저녁 식사 메뉴를 추가해줘"), `itinerary` 필드를 수정하여 **완전히 새로운 전체 계획**을 반영하고, `notes` 필드에 변경 사항에 대한 요약을 담아 응답하세요.
 3.  `itinerary` 배열의 각 객체는 `day`, `order_in_day`, `place_name`, `description`, `start_time`, `end_time` 키를 포함해야 합니다. **또한, 각 장소에 대해 정확하고 완전한 주소를 `address` 필드에 포함해야 합니다.** 정보가 없으면 `null`로 설정하세요.
 
 **JSON 응답 예시:**
-```json
-{{
-  "itinerary": [
+
+*   **질문/대화:**
+    ```json
     {{
-      "day": 1,
-      "order_in_day": 1,
-      "place_name": "에펠탑",
-      "description": "파리의 상징인 에펠탑을 방문하여 도시의 전경을 감상합니다.",
-      "start_time": "09:00",
-      "end_time": "11:00",
-      "address": "Champ de Mars, 5 Av. Anatole France, 75007 Paris, France"
-    }},
-    {{
-      "day": 1,
-      "order_in_day": 2,
-      "place_name": "루브르 박물관",
-      "description": "모나리자를 비롯한 세계적인 예술 작품들을 감상합니다.",
-      "start_time": "12:00",
-      "end_time": "15:00",
-      "address": "Rue de Rivoli, 75001 Paris, France"
+      "notes": "첫째 날 일정은 에펠탑 방문과 루브르 박물관 관람입니다."
     }}
-  ], // 수정되었거나 기존의 전체 일정
-  "notes": "[사용자 요청에 대한 답변 또는 계획 수정 요약]"
-}}
-```
+    ```
+
+*   **계획 수정:**
+    ```json
+    {{
+    "itinerary": [
+        {{
+        "day": 1,
+        "order_in_day": 1,
+        "place_name": "에펠탑",
+        "description": "파리의 상징인 에펠탑을 방문하여 도시의 전경을 감상합니다.",
+        "start_time": "09:00",
+        "end_time": "11:00",
+        "address": "Champ de Mars, 5 Av. Anatole France, 75007 Paris, France"
+        }},
+        {{
+        "day": 1,
+        "order_in_day": 2,
+        "place_name": "루브르 박물관",
+        "description": "모나리자를 비롯한 세계적인 예술 작품들을 감상합니다.",
+        "start_time": "12:00",
+        "end_time": "15:00",
+        "address": "Rue de Rivoli, 75001 Paris, France"
+        }}
+    ], // 수정된 전체 일정
+    "notes": "[사용자 요청에 대한 계획 수정 요약]"
+    }}
+    ```
 """
 
     messages = [

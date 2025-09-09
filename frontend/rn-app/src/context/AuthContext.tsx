@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.0.9:8000'; // Your backend URL
+const API_URL = 'http://172.30.1.67:8000'; // Your backend URL
 
 // --- Interfaces ---
 

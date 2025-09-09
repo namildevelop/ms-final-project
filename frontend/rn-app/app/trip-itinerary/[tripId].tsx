@@ -5,7 +5,6 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GOOGLE_MAPS_API_KEY } from '@env';
 import { styles } from './[tripId].styles'; 
 
 // --- Interfaces ---
@@ -126,7 +125,7 @@ export default function TripItineraryPage() {
   // WebSocket connection
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
-    const wsUrl = `ws://192.168.0.9:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://172.30.1.67:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
     ws.current.onopen = () => console.log('WebSocket Connected');
     ws.current.onclose = () => console.log('WebSocket Disconnected');
