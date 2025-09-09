@@ -39,7 +39,7 @@ const AIPlanningPage: React.FC = () => {
       return;
     }
 
-    const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://172.30.1.67:8000/v1/trips/${tripId}/ws?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
