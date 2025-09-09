@@ -125,4 +125,73 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -5, // Adjust to position the triangle correctly
   },
+  // --- Detail Modal Styles ---
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalCloseButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalImage: {
+    width: '100%',
+    height: 250,
+    resizeMode: 'cover',
+  },
+  modalImagePlaceholder: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#1F2937',
+  },
+  modalSection: {
+    marginBottom: 15,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  modalSectionText: {
+    fontSize: 16,
+    color: '#4B5563',
+    lineHeight: 24,
+  },
+  generateButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

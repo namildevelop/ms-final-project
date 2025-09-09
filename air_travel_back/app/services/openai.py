@@ -190,3 +190,45 @@ def get_gpt_chat_response(trip_details: Dict[str, Any], current_plan: List[Dict[
     except Exception as e:
         print(f"Error calling Azure OpenAI for chat or parsing response: {e}")
         return {"error": f"Failed to get chat response: {str(e)}", "notes": "죄송합니다, GPT와 통신하는 중 오류가 발생했습니다.", "itinerary": current_plan}
+
+def get_gpt_place_description(place_name: str) -> str:
+    """
+    Generates a detailed description for a given place name using Azure OpenAI GPT model.
+    """
+    client = AzureOpenAI(
+        azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+        api_key=settings.AZURE_OPENAI_API_KEY,
+        api_version="2024-02-01",
+    )
+
+    prompt_content = f"""
+    "{place_name}"에 대한 상세한 설명을 생성해 주세요. 이 장소의 역사, 중요성, 방문객이 즐길 수 있는 활동, 주변 명소 등을 포함하여 풍부하고 유익한 정보를 제공해 주세요.
+    응답은 다른 말 없이 설명 텍스트만 포함해야 합니다.
+    """
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a helpful AI assistant that provides detailed descriptions of tourist attractions. You must respond only with the descriptive text."
+        },
+        {
+            "role": "user",
+            "content": prompt_content
+        }
+    ]
+
+    try:
+        completion = client.chat.completions.create(
+            model=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=messages,
+            max_tokens=500,
+            temperature=0.7,
+            top_p=0.95,
+        )
+        
+        description = completion.choices[0].message.content
+        return description.strip()
+
+    except Exception as e:
+        print(f"Error calling Azure OpenAI for place description: {e}")
+        return "상세 정보를 생성하는 중 오류가 발생했습니다."

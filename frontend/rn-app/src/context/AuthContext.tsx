@@ -33,6 +33,30 @@ export interface Place {
   };
 }
 
+export interface PlaceDetails {
+  name: string;
+  photo_url?: string;
+  address?: string;
+  opening_hours?: string[];
+  phone_number?: string;
+  website?: string;
+}
+
+export interface TripItineraryItem {
+    id: number;
+    trip_id: number;
+    day: number;
+    order_in_day: number;
+    place_name: string;
+    description?: string;
+    start_time?: string;
+    end_time?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    gpt_description?: string | null;
+}
+
 interface AuthState {
   token: string | null;
   authenticated: boolean;
@@ -56,6 +80,9 @@ interface AuthContextType extends AuthState {
   updateItineraryOrder: (tripId: string, items: { id: number; day: number; order_in_day: number }[]) => Promise<boolean>;
   searchPlaces: (query: string) => Promise<Place[]>;
   createItineraryItem: (tripId: string, itemData: any) => Promise<boolean>;
+  getPlaceDetailsByName: (placeName: string) => Promise<PlaceDetails | null>;
+  generateGptDescription: (tripId: string, itemId: number) => Promise<TripItineraryItem | null>;
+  leaveTrip: (tripId: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -237,6 +264,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const getPlaceDetailsByName = async (placeName: string): Promise<PlaceDetails | null> => {
+    try {
+      const response = await axios.get(`${API_URL}/v1/google-maps/place-details-by-name?query=${encodeURIComponent(placeName)}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch place details:', error);
+      return null;
+    }
+  };
+
+  const generateGptDescription = async (tripId: string, itemId: number): Promise<TripItineraryItem | null> => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}/generate-description`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to generate GPT description:', error);
+      return null;
+    }
+  };
+
+  const leaveTrip = async (tripId: string): Promise<boolean> => {
+    try {
+      await axios.delete(`${API_URL}/v1/trips/${tripId}/members/me`);
+      return true;
+    } catch (error) {
+      console.error('Failed to leave trip:', error);
+      return false;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -260,6 +317,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateItineraryOrder,
     searchPlaces,
     createItineraryItem,
+    getPlaceDetailsByName,
+    generateGptDescription,
+    leaveTrip,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

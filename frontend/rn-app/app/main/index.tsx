@@ -16,6 +16,7 @@ interface Trip {
   title: string;
   start_date: string;
   end_date: string;
+  member_count: number;
 }
 
 const MainPage: React.FC = () => {
@@ -153,6 +154,12 @@ const MainPage: React.FC = () => {
         status === 'upcoming' ? styles.upcomingCountdownText :
         styles.finishedCountdownText;
 
+    const formatTripDate = (start: string, end: string) => {
+        const startDate = start.replace(/-/g, '.');
+        const endDate = end.replace(/-/g, '.');
+        return `${startDate} ~ ${endDate}`;
+    };
+
     return (
       <TouchableOpacity
         key={trip.id}
@@ -163,7 +170,10 @@ const MainPage: React.FC = () => {
         <View style={styles.tripInfo}>
           <Text style={[styles.tripDestination, isFinished && styles.finishedText]}>{trip.title}</Text>
           <Text style={[styles.tripDates, isFinished && styles.finishedText]}>
-            {trip.start_date} - {trip.end_date}
+            {formatTripDate(trip.start_date, trip.end_date)}
+          </Text>
+          <Text style={[styles.memberCount, isFinished && styles.finishedText]}>
+            {trip.member_count}명 참여
           </Text>
         </View>
         <View style={countdownStyle}>
@@ -448,6 +458,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4a5568',
     marginBottom: 8,
+  },
+  memberCount: {
+    fontSize: 14,
+    color: '#4a5568',
   },
   finishedText: {
     color: '#a0aec0',

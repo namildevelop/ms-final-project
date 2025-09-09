@@ -4,7 +4,7 @@ from typing import List
 
 from app.db.database import get_db
 from app.schemas.user import UserCreate, UserResponse, Token, UserLogin
-from app.schemas.trip import TripResponse
+from app.schemas.trip import TripResponse, TripResponseWithMemberCount
 from app.crud import user as crud_user
 from app.crud import trip as crud_trip
 from app.core.security import create_access_token
@@ -41,13 +41,19 @@ def login_for_access_token(user_credentials: UserLogin, db: Session = Depends(ge
 async def read_users_me(current_user: UserModel = Depends(get_current_user)):
     return current_user
 
-@router.get("/me/trips", response_model=List[TripResponse])
+@router.get("/me/trips", response_model=List[TripResponseWithMemberCount])
 async def read_my_trips(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     trips = crud_trip.get_trips_by_user_id(db, user_id=current_user.id)
-    return trips
+    trips_with_count = [
+        TripResponseWithMemberCount(
+            **TripResponse.model_validate(trip).model_dump(),
+            member_count=len(trip.members)
+        ) for trip in trips
+    ]
+    return trips_with_count
 
 @router.get("/search", response_model=List[UserResponse])
 def search_users(
@@ -60,5 +66,3 @@ def search_users(
         db, email_query=email_query, current_user_id=current_user.id
     )
     return users
-
-
