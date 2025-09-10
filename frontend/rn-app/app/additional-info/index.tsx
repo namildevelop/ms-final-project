@@ -1,3 +1,4 @@
+// 추가 정보 입력 페이지 (전화번호, 주소, 생년월일, MBTI, 성별)
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -11,7 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { styles } from './styles';
+import styles from './styles';
 
 const AdditionalInfo: React.FC = () => {
   const router = useRouter();

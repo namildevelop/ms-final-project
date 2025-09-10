@@ -1,3 +1,4 @@
+// 회원가입 페이지 (닉네임, 이메일, 비밀번호, 약관 동의)
 import React, { useState } from 'react';
 import {
   View,
@@ -112,11 +113,11 @@ const Signup: React.FC = () => {
   };
 
   const handleViewTerms = () => {
-    Alert.alert('이용약관', '이용약관 내용이 여기에 표시됩니다.');
+    router.push('/signup-terms');
   };
 
   const handleViewPrivacy = () => {
-    Alert.alert('개인정보 수집 및 이용', '개인정보 수집 및 이용 내용이 여기에 표시됩니다.');
+    router.push('/signup-privacy');
   };
 
   return (

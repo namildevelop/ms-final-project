@@ -1,3 +1,4 @@
+// 여행 계획 만들기 페이지 (목적지, 기간 선택)
 import React, { useState } from 'react';
 import {
   View,
@@ -184,31 +185,45 @@ const CreateTripPage: React.FC = () => {
               ))}
             </View>
 
-            {/* 달력 그리드 */}
+            {/* 달력 그리드 (메인 스타일과 동일 표시) */}
             <View style={styles.calendarGrid}>
-              {calendarDays.map((date, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.calendarDay,
-                    !isCurrentMonth(date) && styles.otherMonthDay,
-                    isToday(date) && styles.today,
-                    isInSelectedRange(date) && styles.selectedRange,
-                    isSelectedStartDate(date) && styles.selectedStartDate,
-                    isSelectedEndDate(date) && styles.selectedEndDate,
-                  ]}
-                  onPress={() => selectDate(date)}
-                >
-                  <Text style={[
-                    styles.dayText,
-                    !isCurrentMonth(date) && styles.otherMonthDayText,
-                    isToday(date) && styles.todayText,
-                    isInSelectedRange(date) && styles.selectedRangeText,
-                  ]}>
-                    {date.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {calendarDays.map((date, index) => {
+                const startSel = isSelectedStartDate(date);
+                const endSel = isSelectedEndDate(date);
+                const inRange = isInSelectedRange(date);
+                const today = isToday(date);
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.calendarDay,
+                      !isCurrentMonth(date) && styles.otherMonthDay,
+                    ]}
+                    onPress={() => selectDate(date)}
+                  >
+                    {startSel && <View style={styles.selectedStartCircle} />}
+                    {endSel && <View style={styles.selectedEndCircle} />}
+                    {(inRange || startSel || endSel) && (
+                      <View
+                        style={[
+                          styles.rangeBg,
+                          styles.rangeBgActive,
+                          startSel && styles.rangeBgStart,
+                          endSel && styles.rangeBgEnd,
+                        ]}
+                      />
+                    )}
+                    {today && !startSel && !endSel && <View style={styles.todayFilled} />}
+                    <Text style={[
+                      styles.dayText,
+                      !isCurrentMonth(date) && styles.otherMonthDayText,
+                      (startSel || endSel) && { color: '#ffffff', fontWeight: '700' },
+                    ]}>
+                      {date.getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
           </View>
@@ -374,9 +389,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   calendarSection: {
-    backgroundColor: '#3182ce',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   monthNavigation: {
     flexDirection: 'row',
@@ -386,22 +403,22 @@ const styles = StyleSheet.create({
   },
   navArrow: {
     fontSize: 24,
-    color: '#ffffff',
+    color: '#6b7280',
     fontWeight: 'bold',
   },
   monthYear: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1f2937',
   },
   weekHeader: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   weekDay: {
     flex: 1,
     textAlign: 'center',
-    color: '#ffffff',
+    color: '#9ca3af',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -415,45 +432,88 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    paddingBottom: 10,
+  },
+  // 연속 범위 배경 (메인과 유사, 둥근 모서리)
+  rangeBg: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 24,
+    borderRadius: 12,
+    top: '50%',
+    marginTop: -12,
+  },
+  rangeBgActive: {
+    backgroundColor: '#a7daff',
+  },
+  rangeBgStart: {
+    left: '50%',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  rangeBgEnd: {
+    right: '50%',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
   },
   otherMonthDay: {
     opacity: 0.5,
   },
-  today: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
+  todayFilled: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1f8cff',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
+  },
+  selectedStartCircle: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1f8cff',
+    top: '50%',
+    left: '50%',
+    marginTop: -14,
+    marginLeft: -14,
+  },
+  selectedEndCircle: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1f8cff',
+    top: '50%',
+    left: '50%',
+    marginTop: -14,
+    marginLeft: -14,
   },
   selectedRange: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
   },
   selectedStartDate: {
-    backgroundColor: '#ffffff',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
+    backgroundColor: '#1f8cff',
+    borderRadius: 16,
+    width: 28,
+    height: 28,
   },
   selectedEndDate: {
-    backgroundColor: '#ffffff',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
+    backgroundColor: '#1f8cff',
+    borderRadius: 16,
+    width: 28,
+    height: 28,
   },
   dayText: {
-    color: '#ffffff',
-    fontSize: 16,
+    color: '#1a202c',
+    fontSize: 14,
     fontWeight: '500',
   },
   otherMonthDayText: {
     color: '#cbd5e0',
-  },
-  todayText: {
-    color: '#3182ce',
-    fontWeight: 'bold',
   },
   selectedRangeText: {
     color: '#1a202c',
@@ -514,7 +574,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   nextButton: {
-    backgroundColor: '#3182ce',
+    backgroundColor: '#000000',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',

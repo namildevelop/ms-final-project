@@ -1,3 +1,4 @@
+// 여행 선호도 설정 페이지 (교통방식, 관심사, 숙박, 트렌드 반영)
 import React, { useState } from 'react';
 import {
   View,
@@ -323,7 +324,7 @@ const styles = StyleSheet.create({
   previousButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#3182ce',
+    borderColor: '#000000',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -332,11 +333,11 @@ const styles = StyleSheet.create({
   previousButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3182ce',
+    color: '#000000',
   },
   completeButton: {
     flex: 1,
-    backgroundColor: '#3182ce',
+    backgroundColor: '#000000',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',

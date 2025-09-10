@@ -1,13 +1,19 @@
+// 메인 페이지 (홈 - 달력, 여행 계획 목록)
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { styles } from './styles';
 import { useRouter } from 'expo-router';
+// header & tab icons
+import ARIcon from '../../assets/aricon.svg';
+import NoticeOnIcon from '../../assets/noticeonicon.svg';
+import NoticeOffIcon from '../../assets/noticeofficon.svg';
+import HomeOnIcon from '../../assets/homeonicon.svg';
+import HomeOffIcon from '../../assets/homeofficon.svg';
+import BookOnIcon from '../../assets/bookonicon.svg';
+import BookOffIcon from '../../assets/bookofficon.svg';
+import UserOnIcon from '../../assets/useronicon.svg';
+import UserOffIcon from '../../assets/userofficon.svg';
+import TanslateIcon from '../../assets/tanslateicon.svg';
 
 interface TripPlan {
   id: string;
@@ -24,6 +30,64 @@ const MainPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tripPlans, setTripPlans] = useState<TripPlan[]>([]);
+  // 알림 유무 (API 연동 전까지 임시 상태)
+  const [hasNotification, setHasNotification] = useState(false);
+
+  // 예시 데이터: 진행중/대기중/종료 각각 1개씩
+  useEffect(() => {
+    const today = new Date();
+    const format = (d: Date) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}.${mm}.${dd}`;
+    };
+
+    const startOngoing = new Date(today);
+    startOngoing.setDate(today.getDate() - 2);
+    const endOngoing = new Date(today);
+    endOngoing.setDate(today.getDate() + 2);
+
+    const startUpcoming = new Date(today);
+    startUpcoming.setDate(today.getDate() + 14);
+    const endUpcoming = new Date(startUpcoming);
+    endUpcoming.setDate(startUpcoming.getDate() + 2);
+
+    const startEnded = new Date(today);
+    startEnded.setDate(today.getDate() - 20);
+    const endEnded = new Date(today);
+    endEnded.setDate(today.getDate() - 15);
+
+    setTripPlans([
+      {
+        id: 'ongoing-1',
+        destination: '지역 (국가)',
+        startDate: format(startOngoing),
+        endDate: format(endOngoing),
+        daysLeft: 0,
+        participants: 4,
+        leaderNickname: '닉네임'
+      },
+      {
+        id: 'upcoming-1',
+        destination: '지역 (국가)',
+        startDate: format(startUpcoming),
+        endDate: format(endUpcoming),
+        daysLeft: 14,
+        participants: 4,
+        leaderNickname: '닉네임'
+      },
+      {
+        id: 'ended-1',
+        destination: '지역 (국가)',
+        startDate: format(startEnded),
+        endDate: format(endEnded),
+        daysLeft: 0,
+        participants: 4,
+        leaderNickname: '닉네임'
+      }
+    ]);
+  }, []);
 
   // 현재 월의 첫 번째 날과 마지막 날 계산
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -66,13 +130,45 @@ const MainPage: React.FC = () => {
     router.push('/create-trip');
   };
 
-  // 여행 계획이 있는 날짜인지 확인
-  const hasTripOnDate = (date: Date) => {
-    return tripPlans.some(trip => {
-      const start = new Date(trip.startDate);
-      const end = new Date(trip.endDate);
-      return date >= start && date <= end;
-    });
+  // 여행 상태 계산
+  const getTripStatus = (startDateStr: string, endDateStr: string) => {
+    const today = new Date();
+    // 안전한 파싱: 'YYYY.MM.DD' → Date
+    const [sy, sm, sd] = startDateStr.split('.').map(n => parseInt(n, 10));
+    const [ey, em, ed] = endDateStr.split('.').map(n => parseInt(n, 10));
+    const start = new Date(sy, (sm || 1) - 1, sd || 1);
+    const end = new Date(ey, (em || 1) - 1, ed || 1);
+
+    // 날짜만 비교하도록 시간 제거
+    start.setHours(0,0,0,0);
+    end.setHours(0,0,0,0);
+    const base = new Date(today);
+    base.setHours(0,0,0,0);
+
+    if (base < start) {
+      const diffDays = Math.ceil((start.getTime() - base.getTime()) / (1000 * 60 * 60 * 24));
+      return { label: `D-${diffDays}`, type: 'upcoming' as const };
+    }
+    if (base > end) {
+      return { label: '종료', type: 'ended' as const };
+    }
+    const diffDays = Math.floor((base.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return { label: `${diffDays}일차`, type: 'ongoing' as const };
+  };
+
+  // 해당 날짜에 포함되는 여행 개수(겹치면 2개 이상)
+  const countTripsOnDate = (date: Date) => {
+    const base = new Date(date);
+    base.setHours(0,0,0,0);
+    return tripPlans.reduce((acc, trip) => {
+      const [sy, sm, sd] = trip.startDate.split('.').map(n => parseInt(n, 10));
+      const [ey, em, ed] = trip.endDate.split('.').map(n => parseInt(n, 10));
+      const start = new Date(sy, (sm || 1) - 1, sd || 1);
+      const end = new Date(ey, (em || 1) - 1, ed || 1);
+      start.setHours(0,0,0,0);
+      end.setHours(0,0,0,0);
+      return acc + (base >= start && base <= end ? 1 : 0);
+    }, 0);
   };
 
   // 오늘 날짜인지 확인
@@ -97,9 +193,21 @@ const MainPage: React.FC = () => {
           <Text style={styles.title}>
             <Text style={styles.titleAir}>Air</Text> Travel
           </Text>
-          <TouchableOpacity style={styles.cameraButton}>
-            <Text style={styles.cameraIcon}>📷</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRightIcons}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/translation')}>
+              <TanslateIcon width={24} height={24} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton}>
+              <ARIcon width={24} height={24} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}>
+              {hasNotification ? (
+                <NoticeOnIcon width={24} height={24} />
+              ) : (
+                <NoticeOffIcon width={24} height={24} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 달력 섹션 */}
@@ -126,84 +234,157 @@ const MainPage: React.FC = () => {
 
           {/* 달력 그리드 */}
           <View style={styles.calendarGrid}>
-            {calendarDays.map((date, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.calendarDay,
-                  !isCurrentMonth(date) && styles.otherMonthDay,
-                  isToday(date) && styles.today,
-                  selectedDate.getTime() === date.getTime() && styles.selectedDay
-                ]}
-                onPress={() => selectDate(date)}
-              >
-                <Text style={[
-                  styles.dayText,
-                  !isCurrentMonth(date) && styles.otherMonthDayText,
-                  isToday(date) && styles.todayText
-                ]}>
-                  {date.getDate()}
-                </Text>
-                {hasTripOnDate(date) && <View style={styles.tripDot} />}
-              </TouchableOpacity>
-            ))}
+            {calendarDays.map((date, index) => {
+              const cnt = countTripsOnDate(date);
+              const isSelected = selectedDate.getTime() === date.getTime();
+              const today = isToday(date);
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.calendarDay,
+                    !isCurrentMonth(date) && styles.otherMonthDay,
+                  ]}
+                  onPress={() => selectDate(date)}
+                >
+                  {today && !isSelected && <View style={styles.todayFilled} />}
+                  {isSelected && <View style={styles.selectedCircle} />}
+                  <Text style={[ 
+                    styles.dayText,
+                    !isCurrentMonth(date) && styles.otherMonthDayText,
+                    isSelected && { color: '#ffffff', fontWeight: '700' },
+                    cnt >= 1 && { marginBottom: 10 }
+                  ]}>
+                    {date.getDate()}
+                  </Text>
+                  {cnt >= 1 && (
+                    <View style={{ position: 'absolute', bottom: 6, flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={[styles.tripDot, cnt >= 2 && { marginRight: 4 }]} />
+                      {cnt >= 2 && <View style={styles.tripDot} />}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         {/* 여행 계획 섹션 */}
         <View style={styles.tripSection}>
-          {tripPlans.length > 0 ? (
-            tripPlans.map(trip => (
-              <TouchableOpacity
-                key={trip.id}
-                style={styles.tripCard}
-                onPress={() => goToTripDetail(trip.id)}
-              >
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'ongoing').length > 0 && (
+            <>
+          <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 8, marginTop: 8 }}>진행중인 여행</Text>
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'ongoing').map(trip => {
+            const status = getTripStatus(trip.startDate, trip.endDate);
+            return (
+              <TouchableOpacity key={trip.id} style={[styles.tripCard, { borderColor: '#93c5fd', backgroundColor: '#f0f7ff' }]} onPress={() => goToTripDetail(trip.id)}>
                 <View style={styles.tripInfo}>
                   <Text style={styles.tripDestination}>{trip.destination}</Text>
-                  <Text style={styles.tripDates}>
-                    {trip.startDate} - {trip.endDate}
-                  </Text>
+                  <Text style={styles.tripDates}>{trip.startDate} ~ {trip.endDate}</Text>
                   <View style={styles.tripParticipants}>
-                    <Text style={styles.participantsText}>
-                      [{trip.leaderNickname}]외 {trip.participants - 1}명
-                    </Text>
+                    <Text style={styles.participantsText}>{trip.participants}명 참여</Text>
                     <View style={styles.participantIcons}>
-                      {Array.from({ length: trip.participants }, (_, i) => (
-                        <View key={i} style={styles.participantIcon} />
+                      {Array.from({ length: Math.min(trip.participants, 5) }, (_, i) => (
+                        <View key={i} style={[styles.participantIcon, i > 0 && styles.participantIconOverlap]} />
                       ))}
                     </View>
                   </View>
                 </View>
-                <View style={styles.tripCountdown}>
-                  <Text style={styles.countdownText}>D-{trip.daysLeft}</Text>
+                <View style={[styles.statusBadge, styles.statusBadgeOngoing]}>
+                  <Text style={styles.statusBadgeText}>{status.label}</Text>
                 </View>
               </TouchableOpacity>
-            ))
-          ) : (
-            <TouchableOpacity style={styles.createTripCard} onPress={goToCreateTrip}>
-              <Text style={styles.createTripIcon}>+</Text>
-              <Text style={styles.createTripTitle}>여행 계획 만들기</Text>
-              <Text style={styles.createTripSubtitle}>
-                쉽게 AI에게 여행 계획을 만들어달라고 해보세요.
-              </Text>
-            </TouchableOpacity>
+            );
+          })}
+            </>
+          )}
+
+          {/* 대기중인 여행 */}
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'upcoming').length > 0 && (
+            <>
+          <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 8, marginTop: 8 }}>대기중인 여행</Text>
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'upcoming').map(trip => {
+            const status = getTripStatus(trip.startDate, trip.endDate);
+            return (
+              <TouchableOpacity key={trip.id} style={styles.tripCard} onPress={() => goToTripDetail(trip.id)}>
+                <View style={styles.tripInfo}>
+                  <Text style={styles.tripDestination}>{trip.destination}</Text>
+                  <Text style={styles.tripDates}>{trip.startDate} ~ {trip.endDate}</Text>
+                  <View style={styles.tripParticipants}>
+                    <Text style={styles.participantsText}>{trip.participants}명 참여</Text>
+                    <View style={styles.participantIcons}>
+                      {Array.from({ length: Math.min(trip.participants, 5) }, (_, i) => (
+                        <View key={i} style={[styles.participantIcon, i > 0 && styles.participantIconOverlap]} />
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                <View style={[styles.statusBadge, styles.statusBadgeUpcoming]}>
+                  <Text style={styles.statusBadgeText}>{status.label}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+            </>
+          )}
+
+          {/* 종료된 여행 */}
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'ended').length > 0 && (
+            <>
+          <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 8, marginTop: 8 }}>종료된 여행</Text>
+          {tripPlans.filter(t => getTripStatus(t.startDate, t.endDate).type === 'ended').map(trip => {
+            const status = getTripStatus(trip.startDate, trip.endDate);
+            return (
+              <View key={trip.id} style={[styles.tripCard, { backgroundColor: '#f9fafb' }]}>
+                <View style={styles.tripInfo}>
+                  <Text style={styles.tripDestination}>{trip.destination}</Text>
+                  <Text style={styles.tripDates}>{trip.startDate} ~ {trip.endDate}</Text>
+                  <View style={styles.tripParticipants}>
+                    <Text style={styles.participantsText}>{trip.participants}명 참여</Text>
+                    <View style={styles.participantIcons}>
+                      {Array.from({ length: Math.min(trip.participants, 5) }, (_, i) => (
+                        <View key={i} style={[styles.participantIcon, i > 0 && styles.participantIconOverlap]} />
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                <View style={[styles.statusBadge, styles.statusBadgeEnded]}>
+                  <Text style={styles.statusBadgeText}>{status.label}</Text>
+                </View>
+              </View>
+            );
+          })}
+            </>
           )}
         </View>
       </ScrollView>
 
+      {/* 하단 고정 버튼 */}
+      <View style={styles.createTripButtonContainer}>
+        <TouchableOpacity style={styles.createTripButton} onPress={goToCreateTrip}>
+          <Text style={styles.createTripButtonText}>여행 계획 만들기</Text>
+          <Text style={{ color: '#e6f0ff', fontSize: 12, marginTop: 4 }}>AI를 이용해 여행계획을 만들어보세요.</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* 하단 네비게이션 */}
       <View style={styles.bottomNavigation}>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>홈</Text>
+          <HomeOnIcon width={24} height={24} />
+          <Text style={[styles.navLabel, styles.activeNavLabel]}>홈</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>📖</Text>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/diary')}
+        >
+          <BookOffIcon width={24} height={24} />
           <Text style={styles.navLabel}>일기</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>👤</Text>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/mypage')}
+        >
+          <UserOffIcon width={24} height={24} />
           <Text style={styles.navLabel}>마이페이지</Text>
         </TouchableOpacity>
       </View>
@@ -211,228 +392,6 @@ const MainPage: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  content: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a365d',
-  },
-  titleAir: {
-    color: '#3182ce',
-  },
-  cameraButton: {
-    padding: 8,
-  },
-  cameraIcon: {
-    fontSize: 24,
-  },
-  calendarSection: {
-    backgroundColor: '#3182ce',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  monthNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  navArrow: {
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  monthYear: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  weekHeader: {
-    flexDirection: 'row',
-    marginBottom: 15,
-  },
-  weekDay: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  calendarDay: {
-    width: '14.28%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  otherMonthDay: {
-    opacity: 0.5,
-  },
-  today: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-  },
-  selectedDay: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-  },
-  dayText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  otherMonthDayText: {
-    color: '#cbd5e0',
-  },
-  todayText: {
-    color: '#3182ce',
-    fontWeight: 'bold',
-  },
-  tripDot: {
-    position: 'absolute',
-    bottom: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ef4444',
-  },
-  tripSection: {
-    paddingHorizontal: 20,
-    marginBottom: 100,
-  },
-  tripCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tripInfo: {
-    flex: 1,
-  },
-  tripDestination: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a202c',
-    marginBottom: 8,
-  },
-  tripDates: {
-    fontSize: 14,
-    color: '#4a5568',
-    marginBottom: 8,
-  },
-  tripParticipants: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  participantsText: {
-    fontSize: 14,
-    color: '#718096',
-    marginRight: 10,
-  },
-  participantIcons: {
-    flexDirection: 'row',
-  },
-  participantIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#cbd5e0',
-    marginRight: 4,
-  },
-  tripCountdown: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  countdownText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  createTripCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    minHeight: 120,
-    justifyContent: 'center',
-  },
-  createTripIcon: {
-    fontSize: 48,
-    color: '#718096',
-    marginBottom: 15,
-  },
-  createTripTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a202c',
-    marginBottom: 10,
-  },
-  createTripSubtitle: {
-    fontSize: 14,
-    color: '#718096',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  bottomNavigation: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingVertical: 10,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  navIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  navLabel: {
-    fontSize: 12,
-    color: '#4a5568',
-  },
-});
+// styles moved to styles.ts
 
 export default MainPage;

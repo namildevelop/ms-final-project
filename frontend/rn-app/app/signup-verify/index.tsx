@@ -1,3 +1,4 @@
+// 회원가입 이메일 인증 페이지 (4자리 코드 입력)
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';

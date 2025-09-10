@@ -1,3 +1,4 @@
+// 로그인 페이지 (이메일/비밀번호, Google 로그인)
 import React, { useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styles } from './styles';
+import Logo from '../../assets/logo.svg';
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -92,14 +94,11 @@ const Login: React.FC = () => {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* 앱 이름 */}
-          <View style={styles.appTitle}>
-            <Text style={styles.airText}>Air</Text>
-            <Text style={styles.travelText}>Travel</Text>
+          <View style={styles.inner}>
+          {/* 로고 */}
+          <View style={styles.logoContainer}>
+            <Logo width={220} height={100} />
           </View>
-          
-          {/* 로그인 제목 */}
-          <Text style={styles.loginTitle}>로그인</Text>
           
           {/* 로그인 폼 */}
           <View style={styles.form}>
@@ -127,9 +126,7 @@ const Login: React.FC = () => {
             
             {/* 에러 메시지 영역 */}
             {errorMessage ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorMessage}>{errorMessage}</Text>
-              </View>
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
             ) : null}
             
             {/* 로그인 버튼 */}
@@ -141,7 +138,7 @@ const Login: React.FC = () => {
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.loginButtonText}>로그인</Text>
+                <Text style={styles.loginButtonText}>로그인 하기</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -170,8 +167,9 @@ const Login: React.FC = () => {
             <View style={styles.googleIcon}>
               <Text style={styles.googleIconText}>G</Text>
             </View>
-            <Text style={styles.googleLoginText}>구글 로그인</Text>
+            <Text style={styles.googleLoginText}>구글로 로그인 하기</Text>
           </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
