@@ -14,7 +14,7 @@ export default function RootLayout() {
                  <Stack.Screen name="signup" />
                  <Stack.Screen name="signup-verify" />
                  <Stack.Screen name="additional-info" />
-                 <Stack.Screen name="main" />
+                 <Stack.Screen name="(tabs)" />
                  <Stack.Screen name="create-trip" />
                  <Stack.Screen name="trip-preferences" />
       </Stack>

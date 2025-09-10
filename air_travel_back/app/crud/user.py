@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.db.models import User
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 from datetime import datetime
 
@@ -34,6 +34,15 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         return None
     if not verify_password(password, user.password):
         return None
+    return user
+
+def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
+    update_data = user_in.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 def search_users_by_email(db: Session, email_query: str, current_user_id: int, limit: int = 10):

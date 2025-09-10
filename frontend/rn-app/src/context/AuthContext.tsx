@@ -6,6 +6,18 @@ const API_URL = 'http://172.30.1.67:8000'; // Your backend URL
 
 // --- Interfaces ---
 
+interface User {
+  id: number;
+  email: string;
+  nickname: string;
+  phone?: string;
+  gender?: string;
+  birth_date?: string;
+  address?: string;
+  mbti?: string;
+  profile_image_url?: string;
+}
+
 interface SearchResultUser {
   id: number;
   email: string;
@@ -60,7 +72,7 @@ export interface TripItineraryItem {
 interface AuthState {
   token: string | null;
   authenticated: boolean;
-  user: any; // You can define a proper User type here
+  user: User | null;
   loading: boolean;
 }
 
@@ -83,6 +95,7 @@ interface AuthContextType extends AuthState {
   getPlaceDetailsByName: (placeName: string) => Promise<PlaceDetails | null>;
   generateGptDescription: (tripId: string, itemId: number) => Promise<TripItineraryItem | null>;
   leaveTrip: (tripId: string) => Promise<boolean>;
+  updateProfile: (profileData: Partial<User>) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -294,6 +307,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateProfile = async (profileData: Partial<User>) => {
+    try {
+      const response = await axios.put(`${API_URL}/v1/users/me`, profileData);
+      setAuthState(prevState => ({
+        ...prevState,
+        user: response.data,
+      }));
+      return true;
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      return false;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -320,6 +347,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     getPlaceDetailsByName,
     generateGptDescription,
     leaveTrip,
+    updateProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
