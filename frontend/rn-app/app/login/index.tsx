@@ -34,7 +34,7 @@ const Login: React.FC = () => {
     try {
       const success = await login(email, password);
       if (success) {
-        router.replace('/main');
+        router.replace('/(tabs)');
       } else {
         setErrorMessage('이메일 또는 비밀번호가 올바르지 않습니다.');
       }

@@ -101,10 +101,14 @@ export default function TripItineraryPage() {
 
   useEffect(() => {
     if (activeTab === 'schedule' && coordinates.length > 0 && mapRef.current) {
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-        animated: true,
-      });
+      // A short delay is added to ensure the map is ready after the view is displayed.
+      const timer = setTimeout(() => {
+        mapRef.current?.fitToCoordinates(coordinates, {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: true,
+        });
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [coordinates, activeTab]);
 
@@ -134,12 +138,17 @@ export default function TripItineraryPage() {
 
     try {
       const query = item.place_name || item.address;
-      const details = await getPlaceDetailsByName(query);
-      if (details) {
-        setPlaceDetails(details);
+      if (query) {
+        const details = await getPlaceDetailsByName(query);
+        if (details) {
+          setPlaceDetails(details);
+        } else {
+          setPlaceDetails(null); 
+          Alert.alert("정보 없음", "Google에서 장소에 대한 상세 정보를 불러올 수 없습니다. 기본 정보만 표시됩니다.");
+        }
       } else {
-        setPlaceDetails(null); 
-        Alert.alert("정보 없음", "Google에서 장소에 대한 상세 정보를 불러올 수 없습니다. 기본 정보만 표시됩니다.");
+        setPlaceDetails(null);
+        Alert.alert("정보 없음", "장소 이름이나 주소가 없어 상세 정보를 조회할 수 없습니다.");
       }
     } catch (error) {
       console.error("Failed to get place details:", error);
@@ -190,7 +199,7 @@ export default function TripItineraryPage() {
             const success = await leaveTrip(tripId);
             if (success) {
               Alert.alert("성공", "여행에서 나갔습니다.", [
-                { text: "확인", onPress: () => router.push('/main') }
+                { text: "확인", onPress: () => router.push('/(tabs)') }
               ]);
             } else {
               Alert.alert("오류", "여행 나가기에 실패했습니다.");

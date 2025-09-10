@@ -19,7 +19,7 @@ interface Trip {
   member_count: number;
 }
 
-const MainPage: React.FC = () => {
+const HomeScreen: React.FC = () => {
   const router = useRouter();
   const { getTrips } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -281,21 +281,6 @@ const MainPage: React.FC = () => {
       >
         <Text style={styles.stickyCreateButtonText}>+ 새로운 여행 계획하기</Text>
       </TouchableOpacity>
-
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>홈</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>📖</Text>
-          <Text style={styles.navLabel}>일기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>마이페이지</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -419,7 +404,7 @@ const styles = StyleSheet.create({
   },
   tripSection: {
     paddingHorizontal: 20,
-    paddingBottom: 150, // Ensure scroll content is above sticky button
+    paddingBottom: 100, // Ensure scroll content is above sticky button
   },
   tripCategory: {
     marginBottom: 10,
@@ -501,7 +486,7 @@ const styles = StyleSheet.create({
   },
   stickyCreateButton: {
     position: 'absolute',
-    bottom: 90, // Position above the bottom nav bar
+    bottom: 20,
     left: 20,
     right: 20,
     backgroundColor: '#007AFF',
@@ -520,31 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  bottomNavigation: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 10, // Padding for icons
-    paddingBottom: 30, // Padding for safe area on newer iPhones
-    height: 80, // Fixed height
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  navIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  navLabel: {
-    fontSize: 12,
-    color: '#4a5568',
-  },
 });
 
-export default MainPage;
+export default HomeScreen;
