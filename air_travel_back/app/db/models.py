@@ -16,6 +16,7 @@ class User(Base):
     birth_date = Column(Date)
     address = Column(Text)
     mbti = Column(String(10))
+    profile_image_url = Column(Text, default='') # Added profile_image_url
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     trips_created = relationship("Trip", back_populates="creator")
