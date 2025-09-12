@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import os
+import shutil
+import uuid
 
 from app.db.database import get_db
 from app.schemas.user import UserCreate, UserResponse, Token, UserLogin, UserUpdate
@@ -10,8 +13,13 @@ from app.crud import trip as crud_trip
 from app.core.security import create_access_token
 from app.api.deps import get_current_user
 from app.db.models import User as UserModel
+from app.core.config import settings # Import settings
 
 router = APIRouter()
+
+UPLOAD_DIR = "uploads/profile_images" # Define upload directory
+os.makedirs(UPLOAD_DIR, exist_ok=True) # Create directory if it doesn't exist
+
 
 @router.post("/register", response_model=UserResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -48,6 +56,38 @@ def update_user_me(
     current_user: UserModel = Depends(get_current_user),
 ):
     return crud_user.update_user(db=db, user=current_user, user_in=user_in)
+
+@router.post("/me/profile-image", response_model=UserResponse)
+async def upload_profile_image(
+    profile_image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    # Delete old profile image if it exists
+    if current_user.profile_image_url:
+        old_image_path = os.path.join(UPLOAD_DIR, os.path.basename(current_user.profile_image_url))
+        if os.path.exists(old_image_path):
+            os.remove(old_image_path)
+
+    # Generate a unique filename
+    file_extension = profile_image.filename.split(".")[-1]
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+
+    # Save the new image
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(profile_image.file, buffer)
+
+    # Construct the URL for the new image
+    # Assuming your FastAPI app serves static files from the root or a specific path
+    # You might need to adjust this URL based on your static file serving setup
+    profile_image_url = f"{settings.BASE_URL}/{UPLOAD_DIR}/{unique_filename}"
+
+    # Update user's profile_image_url in the database
+    user_in = UserUpdate(profile_image_url=profile_image_url)
+    updated_user = crud_user.update_user(db=db, user=current_user, user_in=user_in)
+    
+    return updated_user
 
 @router.get("/me/trips", response_model=List[TripResponseWithMemberCount])
 async def read_my_trips(

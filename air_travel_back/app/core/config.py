@@ -9,6 +9,7 @@ class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    BASE_URL: str = os.getenv("BASE_URL", "http://0.0.0.0:8000") # Added BASE_URL
 
     # Azure OpenAI Settings
     AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")

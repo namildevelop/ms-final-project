@@ -13,6 +13,7 @@ import {
   Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker'; // Added ImagePicker
 import { useAuth } from '../../src/context/AuthContext';
 import { styles } from './_styles';
 
@@ -58,20 +59,40 @@ const ProfileEditScreen = () => {
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleImagePick = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setProfileData(prev => ({ ...prev, profile_image_url: result.assets[0].uri }));
+    }
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     // Create a payload with only the fields that are not empty strings
     const payload: Partial<ProfileData> = {};
+    let imageUriToUpload: string | undefined;
+
     for (const key in profileData) {
       if (Object.prototype.hasOwnProperty.call(profileData, key)) {
         const value = profileData[key as keyof ProfileData];
-        if (value) {
+        if (key === 'profile_image_url') {
+          // Check if the profile image URL has changed
+          if (value && value !== user?.profile_image_url) {
+            imageUriToUpload = value;
+          }
+        } else if (value) {
             payload[key as keyof ProfileData] = value;
         }
       }
     }
 
-    const success = await updateProfile(payload);
+    const success = await updateProfile(payload, imageUriToUpload);
     setIsLoading(false);
 
     if (success) {
@@ -108,7 +129,7 @@ const ProfileEditScreen = () => {
                 <Text style={styles.profileImagePlaceholder}>👤</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.changeButton}>
+            <TouchableOpacity style={styles.changeButton} onPress={handleImagePick}>
               <Text style={styles.changeButtonText}>프로필 사진 변경</Text>
             </TouchableOpacity>
           </View>

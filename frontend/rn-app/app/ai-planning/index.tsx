@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
+import { API_URL } from '@env';
 
 const AIPlanningPage: React.FC = () => {
   const router = useRouter();
@@ -39,7 +40,7 @@ const AIPlanningPage: React.FC = () => {
       return;
     }
 
-    const wsUrl = `ws://172.30.1.67:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

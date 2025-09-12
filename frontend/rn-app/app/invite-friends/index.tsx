@@ -34,7 +34,7 @@ const InviteFriendsPage: React.FC = () => {
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
 
-    const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => console.log('Invite Friends WebSocket Connected');

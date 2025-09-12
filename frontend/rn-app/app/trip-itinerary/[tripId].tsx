@@ -114,7 +114,7 @@ export default function TripItineraryPage() {
 
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
-    const wsUrl = `ws://172.30.1.67:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
     ws.current.onopen = () => console.log('WebSocket Connected');
     ws.current.onclose = () => console.log('WebSocket Disconnected');

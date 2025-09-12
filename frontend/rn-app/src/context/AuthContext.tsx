@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const API_URL = 'http://172.30.1.67:8000'; // Your backend URL
+import { API_URL } from '@env';
 
 // --- Interfaces ---
 
@@ -95,7 +95,7 @@ interface AuthContextType extends AuthState {
   getPlaceDetailsByName: (placeName: string) => Promise<PlaceDetails | null>;
   generateGptDescription: (tripId: string, itemId: number) => Promise<TripItineraryItem | null>;
   leaveTrip: (tripId: string) => Promise<boolean>;
-  updateProfile: (profileData: Partial<User>) => Promise<boolean>;
+  updateProfile: (profileData: Partial<User>, imageUri?: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -307,9 +307,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProfile = async (profileData: Partial<User>) => {
+  const updateProfile = async (profileData: Partial<User>, imageUri?: string) => {
     try {
-      const response = await axios.put(`${API_URL}/v1/users/me`, profileData);
+      let response;
+      if (imageUri) {
+        const formData = new FormData();
+        // Append other profile data fields
+        for (const key in profileData) {
+          if (Object.prototype.hasOwnProperty.call(profileData, key)) {
+            const value = profileData[key as keyof Partial<User>];
+            if (value !== undefined) {
+              formData.append(key, value as string | Blob);
+            }
+          }
+        }
+        // Append the image file
+        const uriParts = imageUri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+        formData.append('profile_image', {
+          uri: imageUri,
+          name: `profile.${fileType}`,
+          type: `image/${fileType}`,
+        } as any); // 'as any' is used here to bypass TypeScript's strict type checking for FormData append
+
+        response = await axios.post(`${API_URL}/v1/users/me/profile-image`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await axios.put(`${API_URL}/v1/users/me`, profileData);
+      }
+
       setAuthState(prevState => ({
         ...prevState,
         user: response.data,
