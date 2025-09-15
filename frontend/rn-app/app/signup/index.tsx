@@ -100,18 +100,27 @@ const Signup: React.FC = () => {
 
     setIsLoading(true);
 
+    const userData = {
+      email,
+      password,
+      password_confirm: confirmPassword,
+      nickname,
+    };
+
     try {
-      const success = await signup(email, password, nickname);
-      if (success) {
+      const response = await signup(userData);
+      if (response && response.email) {
         router.push({
           pathname: '/signup-verify',
           params: { email }
         });
       } else {
-        Alert.alert('회원가입 실패', '이미 사용 중인 이메일이거나 서버 오류가 발생했습니다.');
+        // This case might not be hit if signup throws an error for non-2xx responses
+        Alert.alert('회원가입 실패', '알 수 없는 오류가 발생했습니다.');
       }
-    } catch (error) {
-      Alert.alert('회원가입 오류', '알 수 없는 오류가 발생했습니다.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || '회원가입 중 오류가 발생했습니다.';
+      Alert.alert('회원가입 오류', errorMessage);
     } finally {
       setIsLoading(false);
     }

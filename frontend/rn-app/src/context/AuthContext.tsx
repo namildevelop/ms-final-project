@@ -6,7 +6,7 @@ import { API_URL } from '@env';
 
 // --- Interfaces ---
 
-interface User {
+export interface User {
   id: number;
   email: string;
   nickname: string;
@@ -16,6 +16,7 @@ interface User {
   address?: string;
   mbti?: string;
   profile_image_url?: string;
+  profile_completed?: boolean;
 }
 
 interface SearchResultUser {
@@ -78,8 +79,11 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  signup: (email: string, password: string, nickname: string) => Promise<boolean>;
+  signup: (userData: any) => Promise<any>;
+  verifySignupCode: (email: string, code: string) => Promise<User>;
+  resendVerificationCode: (email: string) => Promise<boolean>;
   createTrip: (tripData: any) => Promise<any | null>;
   getTrips: () => Promise<any[]>;
   getTripDetails: (tripId: string) => Promise<any | null>;
@@ -114,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const userResponse = await axios.get(`${API_URL}/v1/users/me`);
+          const userResponse = await axios.get(`${API_URL}/v1/auth/me`);
           setAuthState({
             token: token,
             authenticated: true,
@@ -134,12 +138,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/users/login`, { email, password });
-      const { access_token } = response.data;
+      const response = await axios.post(`${API_URL}/v1/auth/login`, { email, password });
+      const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      const userResponse = await axios.get(`${API_URL}/v1/users/me`);
-      setAuthState({ token: access_token, authenticated: true, user: userResponse.data, loading: false });
+      setAuthState({ token: access_token, authenticated: true, user: user, loading: false });
       return true;
     } catch (error) {
       console.error('Login failed:', error);
@@ -147,13 +150,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signup = async (email: string, password: string, nickname: string) => {
+  const loginWithGoogle = async (idToken: string) => {
     try {
-      await axios.post(`${API_URL}/v1/users/register`, { email, password, nickname });
+      const response = await axios.post(`${API_URL}/v1/auth/google/verify`, { id_token: idToken });
+      const { access_token, user } = response.data;
+      await AsyncStorage.setItem('token', access_token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      setAuthState({ token: access_token, authenticated: true, user: user, loading: false });
       return true;
     } catch (error) {
-      console.error('Signup failed:', error);
+      console.error('Google Login failed:', error);
       return false;
+    }
+  };
+
+  const signup = async (userData: any) => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/auth/signup`, userData);
+      return response.data;
+    } catch (error) {
+      console.error('Signup failed:', error);
+      throw error;
+    }
+  };
+
+  const verifySignupCode = async (email: string, code: string): Promise<User> => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/auth/verify-code`, { email, code });
+      const { access_token, user } = response.data;
+      await AsyncStorage.setItem('token', access_token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      setAuthState({ token: access_token, authenticated: true, user: user, loading: false });
+      return user;
+    } catch (error) {
+      console.error('Signup verification failed:', error);
+      throw error;
+    }
+  };
+
+  const resendVerificationCode = async (email: string) => {
+    try {
+      await axios.post(`${API_URL}/v1/auth/resend-verification`, { email });
+      return true;
+    } catch (error) {
+      console.error('Resend verification code failed:', error);
+      throw error;
     }
   };
 
@@ -359,8 +400,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     ...authState,
     login,
+    loginWithGoogle,
     logout,
     signup,
+    verifySignupCode,
+    resendVerificationCode,
     createTrip,
     getTrips,
     getTripDetails,

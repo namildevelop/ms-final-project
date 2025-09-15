@@ -22,3 +22,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+def decode_jwt_or_raise(token: str) -> int:
+    """Decode JWT token and return user ID"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return int(payload["sub"])
+    except JWTError:
+        from fastapi import HTTPException
+        raise HTTPException(401, "토큰이 유효하지 않습니다.")
+
+def make_random_token(length: int = 32) -> str:
+    """Generate a random token"""
+    import secrets
+    return secrets.token_urlsafe(length)

@@ -6,7 +6,7 @@ import shutil
 import uuid
 
 from app.db.database import get_db
-from app.schemas.user import UserCreate, UserResponse, Token, UserLogin, UserUpdate
+from app.schemas.user import UserResponse, UserUpdate
 from app.schemas.trip import TripResponse, TripResponseWithMemberCount
 from app.crud import user as crud_user
 from app.crud import trip as crud_trip
@@ -20,30 +20,6 @@ router = APIRouter()
 UPLOAD_DIR = "uploads/profile_images" # Define upload directory
 os.makedirs(UPLOAD_DIR, exist_ok=True) # Create directory if it doesn't exist
 
-
-@router.post("/register", response_model=UserResponse)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = crud_user.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    return crud_user.create_user(db=db, user=user)
-
-@router.post("/login", response_model=Token)
-def login_for_access_token(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    user = crud_user.authenticate_user(
-        db, email=user_credentials.email, password=user_credentials.password
-    )
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = create_access_token(
-        data={"sub": user.email}
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: UserModel = Depends(get_current_user)):

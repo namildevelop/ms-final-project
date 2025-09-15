@@ -61,7 +61,7 @@ const AdditionalInfo: React.FC = () => {
       {
         text: '확인',
         onPress: () => {
-          router.replace('/main');
+          router.replace('/(tabs)');
         },
       },
     ]);
@@ -76,7 +76,7 @@ const AdditionalInfo: React.FC = () => {
       {
         text: '건너뛰기',
         onPress: () => {
-          router.replace('/main');
+          router.replace('/(tabs)');
         },
       },
     ]);

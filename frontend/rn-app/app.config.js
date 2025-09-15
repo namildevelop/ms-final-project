@@ -19,13 +19,15 @@ export default {
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.travelai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.yourcompany.travelai",
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
@@ -35,6 +37,12 @@ export default {
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+      "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      "API_URL": process.env.API_URL
     }
   }
 };
