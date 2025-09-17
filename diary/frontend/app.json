@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "diary-frontend",
+    "slug": "diary-frontend",
+    "scheme": "diary",
+    "version": "1.0.0",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "extra": { 
+      "EXPO_PUBLIC_API_BASE": "http://127.0.0.1:8000"
+    }
+  }
+}
+  
