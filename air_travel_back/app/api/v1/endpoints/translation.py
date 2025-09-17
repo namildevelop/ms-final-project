@@ -44,8 +44,8 @@ SPEECH_TRANSLATION_MAPPING = {
 }
 
 @router.post("/translate", response_model=ImageTranslationResponse)
-async def translate_image_from_web(request: Request, image: UploadFile = File(...), language: str = Form('ko')):
-    """웹캠 이미지를 받아 번역하고 결과 이미지 URL을 반환합니다."""
+async def translate_image_from_web(request: Request, image: UploadFile = File(...), lang1: str = Form(...), lang2: str = Form(...)):
+    """웹캠 이미지를 받아 언어를 감지한 후 번역하고 결과 이미지 URL을 반환합니다."""
     logger.info("\n[서버 로그] /translate (이미지) 엔드포인트에 POST 요청이 도착했습니다.")
     
     try:
@@ -59,31 +59,39 @@ async def translate_image_from_web(request: Request, image: UploadFile = File(..
         
         result_path_on_disk = image_translator.translate_image(
             image_path=image_path,
-            target_language=language,
+            from_language=lang1,
+            to_language=lang2,
             output_path=output_path
         )
+
 
         if result_path_on_disk:
             result_url = f"{request.base_url}{output_path}"
             logger.info(f"[서버 로그] 성공! 결과 URL: {result_url}")
             return ImageTranslationResponse(result_url=result_url)
         else:
-            raise HTTPException(status_code=500, detail="Translation failed")
+            # If translation fails or no text is found, we might not want to raise an error,
+            # but rather return a response that indicates no result.
+            # For now, the client handles a failed request.
+            raise HTTPException(status_code=500, detail="Image translation failed or no text found.")
 
     except Exception as e:
         logger.error(f"/translate 엔드포인트 오류: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"서버 내부 처리 중 오류가 발생했습니다: {e}")
 
+
 @router.post("/speech-translate", response_model=SpeechTranslationResponse)
-async def handle_speech_translation(from_lang: str = Form(...), to_lang: str = Form(...), audio: UploadFile = File(...)):
-    """React Native 앱에서 음성 파일을 받아 번역하고 결과를 반환합니다."""
+async def handle_speech_translation(lang1: str = Form(...), lang2: str = Form(...), audio: UploadFile = File(...)):
+    """React Native 앱에서 음성 파일을 받아 언어를 감지하고 번역 결과를 반환합니다."""
     logger.info("\n[서버 로그] /speech-translate (음성) 엔드포인트에 POST 요청이 도착했습니다.")
 
-    if from_lang not in SPEECH_TRANSLATION_MAPPING or to_lang not in SPEECH_TRANSLATION_MAPPING:
+    if lang1 not in SPEECH_TRANSLATION_MAPPING or lang2 not in SPEECH_TRANSLATION_MAPPING:
         raise HTTPException(status_code=400, detail="지원되지 않는 언어 코드입니다.")
 
-    from_stt_code, _ = SPEECH_TRANSLATION_MAPPING[from_lang]
-    _, to_tts_voice = SPEECH_TRANSLATION_MAPPING[to_lang]
+    lang_details = {
+        lang1: SPEECH_TRANSLATION_MAPPING[lang1],
+        lang2: SPEECH_TRANSLATION_MAPPING[lang2]
+    }
 
     temp_audio_path = None
     wav_audio_path = None
@@ -105,14 +113,13 @@ async def handle_speech_translation(from_lang: str = Form(...), to_lang: str = F
         # 3. 번역 실행 (WAV 파일 사용)
         result = speech_translator.translate_audio_file(
             audio_path=wav_audio_path,
-            from_lang_code=from_stt_code,
-            to_lang_code=to_lang,
-            to_lang_voice=to_tts_voice
+            lang_details=lang_details
         )
 
         if not result.get('success'):
             error_detail = result.get('error', '알 수 없는 서버 오류')
-            raise HTTPException(status_code=500, detail=error_detail)
+            # The result dictionary now matches the schema, so we can pass it directly
+            return SpeechTranslationResponse(**result, error=error_detail)
         
         return SpeechTranslationResponse(**result)
 
@@ -120,7 +127,11 @@ async def handle_speech_translation(from_lang: str = Form(...), to_lang: str = F
         raise http_exc
     except Exception as e:
         logger.error(f"/speech-translate 엔드포인트 오류: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"서버 내부 처리 중 오류가 발생했습니다: {e}")
+        # Return a properly formatted error response
+        return SpeechTranslationResponse(
+            success=False,
+            error=f"서버 내부 처리 중 오류가 발생했습니다: {str(e)}"
+        )
     finally:
         # 처리 후 임시 파일들 삭제
         if temp_audio_path and os.path.exists(temp_audio_path):

@@ -28,4 +28,13 @@ class Settings:
     # Google Maps API Key
     GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
+    # Azure Translation and Speech Services
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: str = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "")
+    AZURE_DOCUMENT_INTELLIGENCE_KEY: str = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_KEY", "")
+    TRANSLATOR_ENDPOINT: str = os.getenv("TRANSLATOR_ENDPOINT", "")
+    TRANSLATOR_API_KEY: str = os.getenv("TRANSLATOR_API_KEY", "")
+    TRANSLATOR_REGION: str = os.getenv("TRANSLATOR_REGION", "")
+    SPEECH_API_KEY: str = os.getenv("SPEECH_API_KEY", "")
+    SPEECH_REGION: str = os.getenv("SPEECH_REGION", "")
+
 settings = Settings()

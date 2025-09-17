@@ -191,6 +191,9 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.titleAir}>Air</Text> Travel
           </Text>
           <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.cameraButton} onPress={() => router.push('/translation')}>
+              <Text style={styles.cameraIcon}>💬</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.cameraButton} onPress={() => router.push('/notifications')}>
               <Text style={styles.cameraIcon}>🔔</Text>
             </TouchableOpacity>

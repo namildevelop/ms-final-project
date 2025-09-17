@@ -11,3 +11,11 @@ authlib
 google-auth
 google-auth-oauthlib
 fastapi-mail
+
+# Translation services
+azure-ai-formrecognizer
+azure-ai-translation-text
+azure-cognitiveservices-speech
+Pillow
+numpy
+pydub

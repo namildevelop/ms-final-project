@@ -4,10 +4,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
 import { getLanguageName, languageMap } from './utils';
-import RNPickerSelect from 'react-native-picker-select';
+import LanguagePicker from './LanguagePicker'; // Changed import
 
-// 🚨 중요: 이 주소를 자신의 Flask 서버 IP 주소로 변경하세요!
-const SERVER_URL = 'http://4.230.16.32:5000/translate';
+import { API_URL } from '@env';
+
+// 🚨 중요: 이 주소는 API 서버의 기본 URL을 사용합니다.
+const SERVER_URL = `${API_URL}/v1/translation/translate`;
 
 const LANG_OPTIONS = Object.keys(languageMap).map(name => ({
     label: name,
@@ -18,7 +20,7 @@ const TranslationImage: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string; to?: string }>();
   
-  const [fromLang, setFromLang] = useState('en');
+  const [fromLang, setFromLang] = useState('en'); // Re-introduced
   const [toLang, setToLang] = useState('ko');
   const [translatedImage, setTranslatedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,9 +29,9 @@ const TranslationImage: React.FC = () => {
   const cameraRef = useRef<CameraView | null>(null);
 
   useEffect(() => {
-    if (params?.from) setFromLang(params.from as string);
+    if (params?.from) setFromLang(params.from as string); // Re-introduced
     if (params?.to) setToLang(params.to as string);
-  }, [params]);
+  }, []);
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -56,8 +58,9 @@ const TranslationImage: React.FC = () => {
       uri: Platform.OS === 'android' ? photo.uri : photo.uri.replace('file://', ''),
       type: 'image/jpeg',
       name: 'photo.jpg',
-    });
-    formData.append('language', toLang);
+    } as any);
+    formData.append('lang1', fromLang); // Changed back
+    formData.append('lang2', toLang);   // Changed back
     
     try {
       const response = await axios.post(SERVER_URL, formData, {
@@ -69,14 +72,18 @@ const TranslationImage: React.FC = () => {
         throw new Error("서버 응답에 결과 URL이 없습니다.");
       }
     } catch (error) {
-      alert(`서버 통신 오류: ${error.message}`);
+        if (error instanceof Error) {
+            alert(`서버 통신 오류: ${error.message}`);
+        } else {
+            alert('알 수 없는 서버 통신 오류가 발생했습니다.');
+        }
     } finally {
       setIsLoading(false);
     }
   };
   
   const reset = () => setTranslatedImage(null);
-  const swapLanguages = () => {
+  const swapLanguages = () => { // Re-introduced
     const temp = fromLang;
     setFromLang(toLang);
     setToLang(temp);
@@ -107,24 +114,18 @@ const TranslationImage: React.FC = () => {
           <Text style={styles.backIcon}>✕</Text>
         </TouchableOpacity>
         <View style={styles.langControls}>
-            <RNPickerSelect
-                value={fromLang}
-                onValueChange={(value) => value && setFromLang(value)}
-                items={LANG_OPTIONS}
-                style={pickerSelectStyles}
-                useNativeAndroidPickerStyle={false}
-                placeholder={{}}
+            <LanguagePicker // Re-introduced
+                selectedValue={fromLang}
+                onValueChange={(value) => setFromLang(value)}
+                options={languageMap}
             />
-            <TouchableOpacity onPress={swapLanguages}>
+            <TouchableOpacity onPress={swapLanguages} style={styles.swapIcon}>
                 <Text style={styles.swapIcon}>⇌</Text>
             </TouchableOpacity>
-            <RNPickerSelect
-                value={toLang}
-                onValueChange={(value) => value && setToLang(value)}
-                items={LANG_OPTIONS}
-                style={pickerSelectStyles}
-                useNativeAndroidPickerStyle={false}
-                placeholder={{}}
+            <LanguagePicker // Re-introduced
+                selectedValue={toLang}
+                onValueChange={(value) => setToLang(value)}
+                options={languageMap}
             />
         </View>
       </View>
@@ -175,6 +176,7 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 24, fontWeight: 'bold' },
   langControls: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   swapIcon: { fontSize: 20, color: '#4b5563', marginHorizontal: 5 },
+  targetLangLabel: { fontSize: 16, color: '#4b5563', marginRight: 10 }, // This will be unused but kept for now
   bottomContainer: {
     position: 'absolute',
     bottom: 40,
@@ -199,32 +201,5 @@ const styles = StyleSheet.create({
   loadingText: { color: 'white', marginTop: 10 },
 });
 
-const pickerSelectStyles = StyleSheet.create({
-    inputIOS: {
-      fontSize: 14,
-      paddingVertical: 8,
-      paddingHorizontal: 8,
-      borderWidth: 1,
-      borderColor: '#d1d5db',
-      borderRadius: 8,
-      color: 'black',
-      backgroundColor: 'white',
-      textAlign: 'center',
-      width: 100,
-    },
-    inputAndroid: {
-      fontSize: 14,
-      paddingVertical: 6,
-      paddingHorizontal: 8,
-      borderWidth: 1,
-      borderColor: '#d1d5db',
-      borderRadius: 8,
-      color: 'black',
-      backgroundColor: 'white',
-      textAlign: 'center',
-      width: 100,
-    },
-});
 
 export default TranslationImage;
-

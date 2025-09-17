@@ -1,38 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { languageMap, getLanguageName } from './utils';
+import { getLanguageName, languageMap } from './utils';
 import { Audio } from 'expo-av';
 import axios from 'axios';
+import LanguagePicker from './LanguagePicker';
 
-const SERVER_URL = 'http://4.230.16.32:5000/speech-translate';
+import { API_URL } from '@env';
 
-type Message = {
+const SERVER_URL = `${API_URL}/v1/translation/speech-translate`;
+
+type ConversationMessage = {
   id: string;
-  original: string;
-  translated: string;
+  text: string;
   ttsAudio?: string;
-  speaker: 'A' | 'B';
 };
 
 const TranslationConversation: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string; to?: string }>();
-  
+
   const [fromLang, setFromLang] = useState('en');
   const [toLang, setToLang] = useState('ko');
-  const [messages, setMessages] = useState<Message[]>([]);
+  
+  const [fromLangMessages, setFromLangMessages] = useState<ConversationMessage[]>([]);
+  const [toLangMessages, setToLangMessages] = useState<ConversationMessage[]>([]);
+
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [activeMic, setActiveMic] = useState<'A' | 'B' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const swapLanguages = () => {
+    const temp = fromLang;
+    setFromLang(toLang);
+    setToLang(temp);
+    // Also swap messages
+    const tempMessages = fromLangMessages;
+    setFromLangMessages(toLangMessages);
+    setToLangMessages(tempMessages);
+  };
+
   useEffect(() => {
     if (params?.from) setFromLang(params.from as string);
     if (params?.to) setToLang(params.to as string);
-  }, [params]);
+  }, []);
 
-  // 오디오 권한 초기화
   useEffect(() => {
     const setupAudio = async () => {
       try {
@@ -52,20 +65,15 @@ const TranslationConversation: React.FC = () => {
     if (isRecording && activeMic !== speaker) return;
 
     if (recording) {
-      // 녹음 중지
       setIsRecording(false);
       setActiveMic(null);
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       if (uri) {
-        const langPair = speaker === 'A' 
-          ? { from: fromLang, to: toLang }
-          : { from: toLang, to: fromLang };
-        await sendToServer(uri, langPair, speaker);
+        await sendToServer(uri);
       }
       setRecording(null);
     } else {
-      // 녹음 시작
       try {
         const { recording } = await Audio.Recording.createAsync(
           Audio.RecordingOptionsPresets.HIGH_QUALITY
@@ -80,7 +88,7 @@ const TranslationConversation: React.FC = () => {
     }
   };
 
-  const sendToServer = async (uri: string, langPair: { from: string, to: string }, speaker: 'A' | 'B') => {
+  const sendToServer = async (uri: string) => {
     setIsLoading(true);
     const formData = new FormData();
     formData.append('audio', {
@@ -89,8 +97,8 @@ const TranslationConversation: React.FC = () => {
       name: 'recording.m4a',
     } as any);
 
-    formData.append('from_lang', langPair.from);
-    formData.append('to_lang', langPair.to);
+    formData.append('lang1', fromLang);
+    formData.append('lang2', toLang);
 
     try {
       const response = await axios.post(SERVER_URL, formData, {
@@ -99,25 +107,40 @@ const TranslationConversation: React.FC = () => {
       });
 
       if (response.data && response.data.success) {
-        const data = response.data;
-        const newMessage: Message = {
-          id: Date.now().toString(),
-          original: data.original,
-          translated: data.translated,
-          ttsAudio: data.tts_audio,
-          speaker: speaker
+        const { detected_lang, source_text, translated_text, tts_audio } = response.data;
+
+        const sourceMessage: ConversationMessage = {
+          id: Date.now().toString() + '-src',
+          text: source_text,
         };
-        
-        setMessages(prev => [...prev, newMessage]);
-        
-        if (data.tts_audio) {
-          await playSound(data.tts_audio);
+        const translatedMessage: ConversationMessage = {
+          id: Date.now().toString() + '-trans',
+          text: translated_text,
+          ttsAudio: tts_audio,
+        };
+
+        if (detected_lang === fromLang) {
+          setFromLangMessages(prev => [...prev, sourceMessage]);
+          setToLangMessages(prev => [...prev, translatedMessage]);
+        } else {
+          setToLangMessages(prev => [...prev, sourceMessage]);
+          setFromLangMessages(prev => [...prev, translatedMessage]);
+        }
+
+        if (tts_audio) {
+          await playSound(tts_audio);
         }
       } else {
         alert(`번역 실패: ${response.data?.error || '알 수 없는 오류'}`);
       }
     } catch (error: any) {
-      alert(`서버 통신 오류: ${error.message}`);
+        if (axios.isAxiosError(error)) {
+            alert(`서버 통신 오류: ${error.message}`);
+        } else if (error instanceof Error) {
+            alert(`오류 발생: ${error.message}`);
+        } else {
+            alert('알 수 없는 서버 통신 오류가 발생했습니다.');
+        }
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +152,7 @@ const TranslationConversation: React.FC = () => {
         { uri: `data:audio/wav;base64,${base64Audio}` }
       );
       await sound.playAsync();
-      
+
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync();
@@ -140,45 +163,52 @@ const TranslationConversation: React.FC = () => {
     }
   };
 
-  // 샘플 메시지 (개발용)
-  const sourceMessages = messages.filter(m => m.speaker === 'A');
-  const translatedMessages = messages.filter(m => m.speaker === 'B');
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
       </View>
 
+      <View style={styles.langSelectContainer}>
+        <LanguagePicker
+            selectedValue={fromLang}
+            onValueChange={(value) => setFromLang(value)}
+            options={languageMap}
+        />
+        <TouchableOpacity style={styles.swapBtn} onPress={swapLanguages}>
+          <Text style={styles.swapIcon}>↔︎</Text>
+        </TouchableOpacity>
+        <LanguagePicker
+            selectedValue={toLang}
+            onValueChange={(value) => setToLang(value)}
+            options={languageMap}
+        />
+      </View>
+
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        {/* 위쪽 원본 영역 */}
         <View style={styles.section}>
           <View style={styles.bubblesArea}>
-            {sourceMessages.map((m) => (
+            {fromLangMessages.map((m) => (
               <View key={m.id} style={[styles.bubble, styles.bubbleBlue]}>
-                <Text style={styles.bubbleTextDark}>{m.original}</Text>
+                <Text style={styles.bubbleTextDark}>{m.text}</Text>
                 {m.ttsAudio && (
-                  <TouchableOpacity onPress={() => playSound(m.ttsAudio!)}>
+                  <TouchableOpacity onPress={() => playSound(m.ttsAudio!)} style={styles.speakerIconWrapper}>
                     <Text style={styles.speakerIcon}>🔊</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ))}
-            
-            {/* 녹음 중 표시 */}
             {isRecording && activeMic === 'A' && (
               <View style={[styles.bubble, { backgroundColor: '#fef2f2' }]}>
                 <Text style={styles.bubbleTextDark}>🔴 녹음 중...</Text>
               </View>
             )}
           </View>
-          
           <View style={styles.controlRow}>
             <Text style={styles.langLabel}>{getLanguageName(fromLang)}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.micBtn, activeMic === 'A' && { backgroundColor: '#dc2626' }]}
               onPress={() => handleRecord('A')}
               disabled={isLoading}
@@ -190,34 +220,29 @@ const TranslationConversation: React.FC = () => {
           </View>
         </View>
 
-        {/* 구분선 */}
         <View style={styles.separator} />
 
-        {/* 아래쪽 번역 영역 */}
         <View style={styles.section}>
           <View style={styles.bubblesArea}>
-            {translatedMessages.map((m) => (
+            {toLangMessages.map((m) => (
               <View key={m.id} style={[styles.bubble, styles.bubbleGray]}>
-                <Text style={styles.bubbleTextDark}>{m.translated}</Text>
+                <Text style={styles.bubbleTextDark}>{m.text}</Text>
                 {m.ttsAudio && (
-                  <TouchableOpacity onPress={() => playSound(m.ttsAudio!)}>
+                  <TouchableOpacity onPress={() => playSound(m.ttsAudio!)} style={styles.speakerIconWrapper}>
                     <Text style={styles.speakerIcon}>🔊</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ))}
-            
-            {/* 녹음 중 표시 */}
             {isRecording && activeMic === 'B' && (
               <View style={[styles.bubble, { backgroundColor: '#fef2f2' }]}>
                 <Text style={styles.bubbleTextDark}>🔴 녹음 중...</Text>
               </View>
             )}
           </View>
-          
           <View style={styles.controlRow}>
             <Text style={styles.langLabel}>{getLanguageName(toLang)}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.micBtn, activeMic === 'B' && { backgroundColor: '#dc2626' }]}
               onPress={() => handleRecord('B')}
               disabled={isLoading}
@@ -230,7 +255,6 @@ const TranslationConversation: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* 로딩 오버레이 */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#ffffff" />
@@ -259,6 +283,7 @@ const styles = StyleSheet.create({
   bubbleBlue: { backgroundColor: '#e5f0ff', borderWidth: 0, },
   bubbleGray: { backgroundColor: '#f3f4f6', borderWidth: 0, },
   bubbleTextDark: { color: '#111827', fontSize: 14, flex: 1, marginRight: 8 },
+  speakerIconWrapper: { paddingLeft: 8 },
   speakerIcon: { fontSize: 14, color: '#111827' },
   controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   langLabel: { fontSize: 16, fontWeight: 'bold', color: '#1f2937' },
@@ -283,7 +308,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontWeight: 'bold'
-  }
+  },
+  langSelectContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  swapBtn: {
+    padding: 8,
+  },
+  swapIcon: {
+    fontSize: 20,
+    color: '#6b7280',
+  },
 });
 
 export default TranslationConversation;

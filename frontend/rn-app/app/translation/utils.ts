@@ -18,4 +18,3 @@ export const languageMap: { [key: string]: string } = {
 export const getLanguageName = (code: string): string => {
   return Object.keys(languageMap).find(key => languageMap[key] === code) || 'Unknown';
 };
-
