@@ -30,6 +30,7 @@ class User(Base):
     trip_memberships = relationship("TripMember", back_populates="member")
     chats = relationship("TripChat", back_populates="sender")
     notifications = relationship("Notification", foreign_keys="[Notification.receiver_id]", back_populates="receiver")
+    diaries = relationship("DiaryEntry", back_populates="creator")
 
 class PendingSignup(Base):
     __tablename__ = "pending_signups"
@@ -158,3 +159,18 @@ class Notification(Base):
     receiver = relationship("User", foreign_keys=[receiver_id], back_populates="notifications")
     sender = relationship("User", foreign_keys=[sender_id])
     trip = relationship("Trip")
+
+class DiaryEntry(Base):
+    __tablename__ = "diary_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    date = Column(Date, nullable=False)
+    photo_path = Column(String(500), nullable=True)
+    ai_image_url = Column(String(1000), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    creator = relationship("User", back_populates="diaries")

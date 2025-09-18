@@ -19,6 +19,17 @@ export interface User {
   profile_completed?: boolean;
 }
 
+export interface Diary {
+  id: number;
+  title: string;
+  content: string;
+  date: string; // Assuming date is a string in ISO format
+  photo_path?: string;
+  ai_image_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PackingListItem {
   id: number;
   trip_id: number;
@@ -114,6 +125,11 @@ interface AuthContextType extends AuthState {
   updatePackingListItem: (tripId: string, itemId: number, itemData: Partial<PackingListItem>) => Promise<PackingListItem | null>;
   deletePackingListItem: (tripId: string, itemId: number) => Promise<boolean>;
   togglePackingListItem: (tripId: string, itemId: number) => Promise<PackingListItem | null>;
+  // Diary
+  getDiaries: () => Promise<Diary[]>;
+  createDiary: (diaryData: FormData) => Promise<Diary | null>;
+  deleteDiary: (diaryId: number) => Promise<boolean>;
+  generateDiaryImage: (title: string, content: string) => Promise<{ image_url: string } | null>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -456,6 +472,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Diary Functions
+  const getDiaries = async (): Promise<Diary[]> => {
+    try {
+      const response = await axios.get(`${API_URL}/v1/diaries`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch diaries:', error);
+      return [];
+    }
+  };
+
+  const createDiary = async (diaryData: FormData): Promise<Diary | null> => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/diaries`, diaryData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create diary:', error);
+      return null;
+    }
+  };
+
+  const deleteDiary = async (diaryId: number): Promise<boolean> => {
+    try {
+      await axios.delete(`${API_URL}/v1/diaries/${diaryId}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete diary:', error);
+      return false;
+    }
+  };
+
+  const generateDiaryImage = async (title: string, content: string): Promise<{ image_url: string } | null> => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/diaries/generate-image`, { title, content });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to generate diary image:', error);
+      return null;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -492,6 +553,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updatePackingListItem,
     deletePackingListItem,
     togglePackingListItem,
+    // Diary
+    getDiaries,
+    createDiary,
+    deleteDiary,
+    generateDiaryImage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

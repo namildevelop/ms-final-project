@@ -25,6 +25,12 @@ class Settings:
     AZURE_OPENAI_ENDPOINT: str = "https://team2-openai.openai.azure.com/"
     AZURE_OPENAI_DEPLOYMENT_NAME: str = "gpt-4.1"
 
+    # Azure DALL_E Settings
+    AZURE_DALL_E_DEPLOYMENT_NAME: str = os.getenv("AZURE_DALL_E_DEPLOYMENT_NAME", "")
+    AZURE_DALL_E_API_KEY: str = os.getenv("AZURE_DALL_E_API_KEY", "")                                                                                        
+    AZURE_DALL_E_ENDPOINT: str = os.getenv("AZURE_DALL_E_ENDPOINT", "")                                                                                      
+    AZURE_DALL_E_API_VERSION: str = os.getenv("AZURE_DALL_E_API_VERSION", "") 
+
     # Google Maps API Key
     GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
 

@@ -258,3 +258,38 @@ def get_gpt_place_description(place_name: str) -> str:
     except Exception as e:
         print(f"Error calling Azure OpenAI for place description: {e}")
         return "상세 정보를 생성하는 중 오류가 발생했습니다."
+
+def generate_diary_image_url(title: str, content: str) -> str:
+    """
+    Generates an image URL using Azure DALL-E 3 based on diary content.
+    """
+    if not title and not content:
+        raise ValueError("Title or content is required to generate an image.")
+
+    try:
+        client = AzureOpenAI(
+            api_key=settings.AZURE_DALL_E_API_KEY,
+            api_version=settings.AZURE_DALL_E_API_VERSION,
+            azure_endpoint=settings.AZURE_DALL_E_ENDPOINT,
+        )
+        
+        prompt = f"A beautiful and emotional diary illustration about '{title}'. Scene: {content}. in a warm, watercolor style."
+        
+        response = client.images.generate(
+            model=settings.AZURE_DALL_E_DEPLOYMENT_NAME,
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        
+        image_url = response.data[0].url
+        if not image_url:
+            raise ValueError("Image URL was not returned from the API.")
+            
+        return image_url
+
+    except Exception as e:
+        print(f"DALL-E 3 API error: {str(e)}")
+        # Re-raise the exception to be handled by the caller
+        raise e
