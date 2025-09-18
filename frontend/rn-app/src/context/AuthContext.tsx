@@ -19,6 +19,14 @@ export interface User {
   profile_completed?: boolean;
 }
 
+export interface PackingListItem {
+  id: number;
+  trip_id: number;
+  item_name: string;
+  quantity: number;
+  is_packed: boolean;
+}
+
 interface SearchResultUser {
   id: number;
   email: string;
@@ -100,6 +108,12 @@ interface AuthContextType extends AuthState {
   generateGptDescription: (tripId: string, itemId: number) => Promise<TripItineraryItem | null>;
   leaveTrip: (tripId: string) => Promise<boolean>;
   updateProfile: (profileData: Partial<User>, imageUri?: string) => Promise<boolean>;
+  // Packing List
+  getPackingList: (tripId: string) => Promise<PackingListItem[]>;
+  addPackingListItem: (tripId: string, itemData: { item_name: string; quantity: number }) => Promise<PackingListItem | null>;
+  updatePackingListItem: (tripId: string, itemId: number, itemData: Partial<PackingListItem>) => Promise<PackingListItem | null>;
+  deletePackingListItem: (tripId: string, itemId: number) => Promise<boolean>;
+  togglePackingListItem: (tripId: string, itemId: number) => Promise<PackingListItem | null>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -391,6 +405,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Packing List Functions
+  const getPackingList = async (tripId: string): Promise<PackingListItem[]> => {
+    try {
+      const response = await axios.get(`${API_URL}/v1/trips/${tripId}/packing-items`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch packing list:', error);
+      return [];
+    }
+  };
+
+  const addPackingListItem = async (tripId: string, itemData: { item_name: string; quantity: number }): Promise<PackingListItem | null> => {
+    try {
+      const response = await axios.post(`${API_URL}/v1/trips/${tripId}/packing-items`, itemData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to add packing list item:', error);
+      return null;
+    }
+  };
+
+  const updatePackingListItem = async (tripId: string, itemId: number, itemData: Partial<PackingListItem>): Promise<PackingListItem | null> => {
+    try {
+      const response = await axios.put(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}`, itemData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update packing list item:', error);
+      return null;
+    }
+  };
+
+  const deletePackingListItem = async (tripId: string, itemId: number): Promise<boolean> => {
+    try {
+      await axios.delete(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete packing list item:', error);
+      return false;
+    }
+  };
+
+  const togglePackingListItem = async (tripId: string, itemId: number): Promise<PackingListItem | null> => {
+    try {
+      const response = await axios.patch(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}/toggle`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to toggle packing list item:', error);
+      return null;
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -421,6 +486,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     generateGptDescription,
     leaveTrip,
     updateProfile,
+    // Packing List
+    getPackingList,
+    addPackingListItem,
+    updatePackingListItem,
+    deletePackingListItem,
+    togglePackingListItem,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

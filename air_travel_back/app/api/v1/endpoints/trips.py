@@ -7,7 +7,7 @@ from app.db.database import get_db
 from app.schemas.trip import (
     TripCreate, TripResponse, TripFullResponse, TripChatResponse, 
     TripMemberCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryItemResponse,
-    TripItineraryOrderUpdate
+    TripItineraryOrderUpdate, PackingListItemCreate, PackingListItemUpdate, PackingListItemResponse
 )
 from app.schemas.notification import NotificationResponse
 from app.crud import trip as crud_trip, chat as crud_chat
@@ -185,6 +185,98 @@ def delete_itinerary_item(
     db_item = crud_trip.delete_itinerary_item(db=db, item_id=item_id)
     if not db_item:
         raise HTTPException(status_code=404, detail="Itinerary item not found")
+    return
+
+# --- Packing List Item Endpoints ---
+
+@router.post("/{trip_id}/packing-items", response_model=PackingListItemResponse, status_code=status.HTTP_201_CREATED)
+def create_packing_list_item_endpoint(
+    trip_id: int,
+    item: PackingListItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to add items to this packing list")
+    return crud_trip.create_packing_list_item(db=db, trip_id=trip_id, item=item)
+
+@router.get("/{trip_id}/packing-items", response_model=List[PackingListItemResponse])
+def get_packing_list_items_endpoint(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to view this packing list")
+    return crud_trip.get_packing_list_items_by_trip_id(db=db, trip_id=trip_id)
+
+@router.put("/{trip_id}/packing-items/{item_id}", response_model=PackingListItemResponse)
+def update_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    item_update: PackingListItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to update this packing list")
+    
+    db_item = crud_trip.get_packing_list_item(db, item_id=item_id)
+    if not db_item or db_item.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
+
+    return crud_trip.update_packing_list_item(db=db, item_id=item_id, item_update=item_update)
+
+@router.patch("/{trip_id}/packing-items/{item_id}/toggle", response_model=PackingListItemResponse)
+def toggle_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to update this packing list")
+
+    db_item = crud_trip.get_packing_list_item(db, item_id=item_id)
+    if not db_item or db_item.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
+
+    item_update = PackingListItemUpdate(is_packed=not db_item.is_packed)
+    return crud_trip.update_packing_list_item(db=db, item_id=item_id, item_update=item_update)
+
+@router.delete("/{trip_id}/packing-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to delete from this packing list")
+
+    db_item = crud_trip.delete_packing_list_item(db=db, item_id=item_id)
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
     return
 
 @router.post("/{trip_id}/itinerary-items/{item_id}/generate-description", response_model=TripItineraryItemResponse)

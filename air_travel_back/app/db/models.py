@@ -74,6 +74,7 @@ class Trip(Base):
     interests = relationship("TripInterest", back_populates="trip")
     itinerary_items = relationship("TripItineraryItem", back_populates="trip", cascade="all, delete-orphan")
     chats = relationship("TripChat", back_populates="trip", order_by="TripChat.created_at")
+    packing_list_items = relationship("PackingListItem", back_populates="trip", cascade="all, delete-orphan")
 
 class TripMember(Base):
     __tablename__ = "trip_members"
@@ -115,6 +116,18 @@ class TripItineraryItem(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
     trip = relationship("Trip", back_populates="itinerary_items")
+
+class PackingListItem(Base):
+    __tablename__ = "packing_list_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False)
+    item_name = Column(String(255), nullable=False)
+    quantity = Column(Integer, default=1)
+    is_packed = Column(Boolean, default=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    trip = relationship("Trip", back_populates="packing_list_items")
 
 class TripChat(Base):
     __tablename__ = "trip_chats"
