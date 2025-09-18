@@ -55,7 +55,7 @@ const MyPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',

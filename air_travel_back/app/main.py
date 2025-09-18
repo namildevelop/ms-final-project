@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
-from fastapi.staticfiles import StaticFiles # Import StaticFiles
 
 from app.api.v1.api import api_router
 from app.core.config import settings
@@ -29,9 +28,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/v1")
-
-# Mount static files directory
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

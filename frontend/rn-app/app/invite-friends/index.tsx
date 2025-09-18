@@ -34,7 +34,7 @@ const InviteFriendsPage: React.FC = () => {
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
 
-    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const wsUrl = `ws://localhost:8000/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => console.log('Invite Friends WebSocket Connected');
@@ -82,7 +82,7 @@ const InviteFriendsPage: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>친구 초대하기</Text>
         <View style={styles.placeholder} />
@@ -111,9 +111,14 @@ const InviteFriendsPage: React.FC = () => {
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <View style={styles.resultItem}>
-                <View>
-                  <Text style={styles.nickname}>{item.nickname}</Text>
-                  <Text style={styles.email}>{item.email}</Text>
+                <View style={styles.resultLeft}>
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarEmoji}>👤</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.nickname}>{item.nickname}</Text>
+                    <Text style={styles.email}>{item.email}</Text>
+                  </View>
                 </View>
                 <TouchableOpacity 
                   style={styles.inviteButton} 
@@ -121,9 +126,9 @@ const InviteFriendsPage: React.FC = () => {
                   disabled={isInviting === item.id}
                 >
                   {isInviting === item.id ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#3B82F6" />
                   ) : (
-                    <Text style={styles.inviteButtonText}>초대</Text>
+                    <Text style={styles.inviteButtonText}>초대하기</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -162,6 +167,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1a202c',
+    flex: 1,
+    textAlign: 'left',
+    marginLeft: 8,
   },
   placeholder: {
     width: 40,
@@ -185,13 +193,15 @@ const styles = StyleSheet.create({
     height: 50,
   },
   searchButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     justifyContent: 'center',
     paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   searchButtonText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -203,6 +213,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  resultLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' },
+  avatarEmoji: { fontSize: 18 },
   nickname: {
     fontSize: 16,
     fontWeight: '500',
@@ -213,15 +226,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   inviteButton: {
-    backgroundColor: '#34c759',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 15,
     minWidth: 60,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
   },
   inviteButtonText: {
-    color: '#ffffff',
+    color: '#3B82F6',
     fontWeight: 'bold',
   },
   emptyText: {

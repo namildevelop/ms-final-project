@@ -112,27 +112,8 @@ class TripChatResponse(BaseModel):
     sent_to_gpt: bool
     created_at: datetime
 
-class PackingListItemBase(BaseModel):
-    item_name: str
-    is_packed: bool = False
-    quantity: int = 1
-
-class PackingListItemCreate(PackingListItemBase):
-    pass
-
-class PackingListItemUpdate(PackingListItemBase):
-    item_name: Optional[str] = None
-    is_packed: Optional[bool] = None
-    quantity: Optional[int] = None
-
-class PackingListItemResponse(PackingListItemBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    trip_id: int
-
 class TripFullResponse(TripResponse):
     members: List[TripMemberResponse] = []
     interests: List[TripInterestResponse] = []
     itinerary_items: List[TripItineraryItemResponse] = []
     chats: List[TripChatResponse] = []
-    packing_list_items: List[PackingListItemResponse] = []

@@ -20,14 +20,18 @@ export default {
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.travelai"
+      "infoPlist": {
+        "NSCameraUsageDescription": "카메라를 사용하여 텍스트를 인식하고 번역합니다."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.travelai",
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
@@ -35,14 +39,11 @@ export default {
         }
       }
     },
+    "plugins": [
+      "expo-router"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-      "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      "API_URL": process.env.API_URL
     }
   }
 };

@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import TranslateIcon from '../../assets/tanslateicon.svg';
+import ArIcon from '../../assets/aricon.svg';
+import NoticeOffIcon from '../../assets/noticeofficon.svg';
 import { useAuth } from '../../src/context/AuthContext';
 
 interface Trip {
@@ -18,6 +21,8 @@ interface Trip {
   end_date: string;
   member_count: number;
 }
+
+const PRIMARY_SKY = '#1DA1F2';
 
 const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -163,7 +168,7 @@ const HomeScreen: React.FC = () => {
     return (
       <TouchableOpacity
         key={trip.id}
-        style={[styles.tripCard, isFinished && styles.finishedTripCard]}
+        style={[styles.tripCard, isFinished && styles.finishedTripCard, status==='ongoing' && styles.ongoingTripCard]}
         onPress={() => !isFinished && router.push(`/trip-itinerary/${trip.id}`)}
         disabled={isFinished}
       >
@@ -172,9 +177,16 @@ const HomeScreen: React.FC = () => {
           <Text style={[styles.tripDates, isFinished && styles.finishedText]}>
             {formatTripDate(trip.start_date, trip.end_date)}
           </Text>
-          <Text style={[styles.memberCount, isFinished && styles.finishedText]}>
-            {trip.member_count}명 참여
-          </Text>
+          <View style={styles.memberRow}>
+            <Text style={[styles.memberCount, isFinished && styles.finishedText]}>
+              {trip.member_count}명 참여
+            </Text>
+            <View style={styles.avatarStack}>
+              {[0,1,2,3,4].map((i) => (
+                <View key={i} style={[styles.avatarCircle, { left: i * 16 }]} />
+              ))}
+            </View>
+          </View>
         </View>
         <View style={countdownStyle}>
           <Text style={countdownTextStyle}>{dateText}</Text>
@@ -187,18 +199,16 @@ const HomeScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>
-            <Text style={styles.titleAir}>Air</Text> Travel
-          </Text>
+          <Text style={styles.homeTitle}>홈</Text>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.cameraButton} onPress={() => router.push('/translation')}>
-              <Text style={styles.cameraIcon}>💬</Text>
+            <TouchableOpacity accessibilityLabel="번역" style={styles.iconButton} onPress={() => router.push('/translation')}>
+              <TranslateIcon width={22} height={22} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cameraButton} onPress={() => router.push('/notifications')}>
-              <Text style={styles.cameraIcon}>🔔</Text>
+            <TouchableOpacity accessibilityLabel="AR" style={styles.iconButton} onPress={() => router.push('/translation/image')}>
+              <ArIcon width={22} height={22} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cameraButton}>
-              <Text style={styles.cameraIcon}>📷</Text>
+            <TouchableOpacity accessibilityLabel="알림" style={styles.iconButton} onPress={() => router.push('/notifications')}>
+              <NoticeOffIcon width={22} height={22} />
             </TouchableOpacity>
           </View>
         </View>
@@ -282,7 +292,8 @@ const HomeScreen: React.FC = () => {
         style={styles.stickyCreateButton}
         onPress={() => router.push('/create-trip')}
       >
-        <Text style={styles.stickyCreateButtonText}>+ 새로운 여행 계획하기</Text>
+        <Text style={styles.stickyCreateButtonTitle}>여행 계획 만들기</Text>
+        <Text style={styles.stickyCreateButtonCaption}>AI를 이용해 여행계획을 만들어보세요.</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -291,7 +302,7 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8FA',
+    backgroundColor: '#ffffff',
   },
   content: {
     flex: 1,
@@ -304,22 +315,16 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 15,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a365d',
-  },
-  titleAir: {
-    color: '#007AFF',
+  homeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111111',
   },
   headerIcons: {
     flexDirection: 'row',
   },
-  cameraButton: {
+  iconButton: {
     padding: 8,
-  },
-  cameraIcon: {
-    fontSize: 24,
   },
   calendarContainer: {
     backgroundColor: '#ffffff',
@@ -384,14 +389,14 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
   },
   todayButton: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: PRIMARY_SKY,
   },
   todayText: {
     color: '#ffffff',
     fontWeight: 'bold',
   },
   selectedDayButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#111111',
   },
   selectedDayText: {
     color: '#ffffff',
@@ -403,7 +408,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000000',
   },
   tripSection: {
     paddingHorizontal: 20,
@@ -413,8 +418,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '400',
     color: '#1a202c',
     marginBottom: 15,
     marginTop: 10,
@@ -451,50 +456,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4a5568',
   },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  avatarStack: {
+    width: 90,
+    height: 24,
+    position: 'relative',
+  },
+  avatarCircle: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#cbd5e1',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
   finishedText: {
     color: '#a0aec0',
   },
   ongoingCountdown: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
   },
   ongoingCountdownText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: '#2b6cb0',
+    fontSize: 24,
     fontWeight: '600',
   },
   upcomingCountdown: {
-    backgroundColor: '#ff3b30',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
   },
   upcomingCountdownText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: '#e11d48',
+    fontSize: 24,
     fontWeight: '600',
   },
   finishedCountdown: {
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
   },
   finishedCountdownText: {
     color: '#718096',
-    fontSize: 14,
+    fontSize: 24,
     fontWeight: '600',
   },
   stickyCreateButton: {
     position: 'absolute',
     bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: '#007AFF',
-    borderRadius: 16,
-    paddingVertical: 16,
+    left: '15%',
+    right: '15%',
+    backgroundColor: PRIMARY_SKY,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -503,10 +527,18 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
-  stickyCreateButtonText: {
+  stickyCreateButtonTitle: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  stickyCreateButtonCaption: {
+    color: '#eaf6ff',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  ongoingTripCard: {
+    borderColor: '#87cefa',
   },
 });
 

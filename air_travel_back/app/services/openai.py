@@ -14,8 +14,8 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     prompt_content = f"""
-당신은 상세한 여행 계획과 그에 따른 준비물 리스트를 생성하는 유용한 AI 비서입니다.
-다음 정보를 바탕으로 포괄적인 여행 일정과 준비물 리스트를 생성해 주세요. 응답은 반드시 JSON 형식으로만 제공해야 합니다.
+당신은 상세한 여행 계획을 생성하는 유용한 AI 비서입니다.
+다음 정보를 바탕으로 포괄적인 여행 일정을 생성해 주세요. 응답은 반드시 JSON 형식으로만 제공해야 합니다.
 
 **여행 정보:**
 - 여행 제목: {trip_details.get('title', '미정')}
@@ -27,9 +27,7 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
 - 최신 트렌드 반영 여부: {'예' if trip_details.get('trend') else '아니오'}
 
 **필수 JSON 출력 형식:**
-응답은 `itinerary`와 `packing_list`라는 두 개의 키를 가진 JSON 객체여야 합니다.
-
-`itinerary`의 값은 각 일정을 나타내는 객체들의 배열이어야 합니다.
+응답은 `itinerary`라는 단일 키를 가진 JSON 객체여야 합니다. `itinerary`의 값은 각 일정을 나타내는 객체들의 배열이어야 합니다.
 각 일정 객체는 다음 키를 포함해야 합니다:
 - `day`: (Integer) 몇일차인지 나타내는 숫자.
 - `order_in_day`: (Integer) 그날의 일정 순서 (1부터 시작).
@@ -38,8 +36,6 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
 - `start_time`: (String) 일정이 시작되는 시간 (HH:MM 형식). 정보가 없으면 null.
 - `end_time`: (String) 일정이 끝나는 시간 (HH:MM 형식). 정보가 없으면 null.
 - `address`: (String) 장소의 정확하고 완전한 주소. 정보가 없으면 null.
-
-`packing_list`의 값은 여행에 필요한 준비물 항목들을 문자열로 나열한 배열이어야 합니다.
 
 **JSON 예시:**
 ```json
@@ -63,31 +59,9 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
       "end_time": "15:00",
       "address": "Rue de Rivoli, 75001 Paris, France"
     }}
-  ],
-  "packing_list": [
-    "여권",
-    "비자 (필요시)",
-    "항공권/E-티켓",
-    "숙소 예약 확인서",
-    "여행자 보험 증서",
-    "현금 (현지 통화)",
-    "신용카드",
-    "스마트폰 및 충전기",
-    "보조 배터리",
-    "국제 운전면허증 (필요시)",
-    "상비약",
-    "세면도구",
-    "갈아입을 옷",
-    "편한 신발",
-    "카메라",
-    "선글라스",
-    "모자",
-    "우산/우비",
-    "개인 위생용품",
-    "작은 가방 (데일리용)",
-    "여행용 어댑터/변환기"
   ]
 }}
+```
 """
 
     messages = [

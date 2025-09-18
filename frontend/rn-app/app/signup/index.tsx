@@ -100,27 +100,18 @@ const Signup: React.FC = () => {
 
     setIsLoading(true);
 
-    const userData = {
-      email,
-      password,
-      password_confirm: confirmPassword,
-      nickname,
-    };
-
     try {
-      const response = await signup(userData);
-      if (response && response.email) {
+      const success = await signup(email, password, nickname);
+      if (success) {
         router.push({
           pathname: '/signup-verify',
           params: { email }
         });
       } else {
-        // This case might not be hit if signup throws an error for non-2xx responses
-        Alert.alert('회원가입 실패', '알 수 없는 오류가 발생했습니다.');
+        Alert.alert('회원가입 실패', '이미 사용 중인 이메일이거나 서버 오류가 발생했습니다.');
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '회원가입 중 오류가 발생했습니다.';
-      Alert.alert('회원가입 오류', errorMessage);
+    } catch (error) {
+      Alert.alert('회원가입 오류', '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +123,11 @@ const Signup: React.FC = () => {
   };
 
   const handleViewTerms = () => {
-    Alert.alert('이용약관', '이용약관 내용이 여기에 표시됩니다.');
+    router.push('/signup-terms');
   };
 
   const handleViewPrivacy = () => {
-    Alert.alert('개인정보 수집 및 이용', '개인정보 수집 및 이용 내용이 여기에 표시됩니다.');
+    router.push('/signup-privacy');
   };
 
   return (
@@ -150,7 +141,7 @@ const Signup: React.FC = () => {
           <Text style={styles.inputLabel}>닉네임 (필수)</Text>
           <TextInput
             style={styles.inputField}
-            placeholder="닉네임을 입력하세요."
+            placeholder="한글 2자 이상 입력하세요."
             placeholderTextColor="#999"
             value={nickname}
             onChangeText={(text) => {
@@ -230,31 +221,29 @@ const Signup: React.FC = () => {
             <Text style={styles.checkboxText}>만 14세 이상입니다.</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.checkboxRow}
-            onPress={() => setTermsCheck(!termsCheck)}
-          >
-            <View style={[styles.checkbox, termsCheck && styles.checkboxChecked]}>
-              {termsCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxText}>이용약관</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity onPress={() => setTermsCheck(!termsCheck)} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={[styles.checkbox, termsCheck && styles.checkboxChecked]}>
+                {termsCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxText}>이용약관 (필수)</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleViewTerms}>
               <Text style={styles.linkText}>보기</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
           
-          <TouchableOpacity 
-            style={styles.checkboxRow}
-            onPress={() => setPrivacyCheck(!privacyCheck)}
-          >
-            <View style={[styles.checkbox, privacyCheck && styles.checkboxChecked]}>
-              {privacyCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxText}>개인정보 수집 및 이용동의</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity onPress={() => setPrivacyCheck(!privacyCheck)} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={[styles.checkbox, privacyCheck && styles.checkboxChecked]}>
+                {privacyCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxText}>개인정보 수집 및 이용동의 (필수)</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleViewPrivacy}>
               <Text style={styles.linkText}>보기</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
       

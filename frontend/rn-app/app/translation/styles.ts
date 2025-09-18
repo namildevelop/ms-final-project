@@ -34,6 +34,24 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
   },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#1a202c',
+  },
+  dropdownArrow: {
+    fontSize: 14,
+    color: '#4a5568',
+  },
   swapBtn: {
     width: 40,
     height: 40,
@@ -62,32 +80,37 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: 260,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#374151',
+  },
+  modalItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  modalItemText: {
+    fontSize: 14,
+    color: '#111827',
+  },
 });
 
-// ✅ RNPickerSelect 스타일 추가
-export const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    color: '#1a202c',
-    paddingRight: 30,
-    backgroundColor: 'white',
-    width: 120,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    color: '#1a202c',
-    paddingRight: 30,
-    backgroundColor: 'white',
-    width: 120,
-  },
-});
+
+
+
+

@@ -137,7 +137,6 @@ const TripPreferencesPage: React.FC = () => {
           <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.title}>여행 계획 만들기</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -240,13 +239,14 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    gap: 8,
   },
   backButton: {
     padding: 8,
@@ -260,9 +260,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a202c',
   },
-  placeholder: {
-    width: 40,
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 20,
@@ -349,7 +347,7 @@ const styles = StyleSheet.create({
   previousButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#3182ce',
+    borderColor: '#111111',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -358,11 +356,11 @@ const styles = StyleSheet.create({
   previousButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3182ce',
+    color: '#111111',
   },
   completeButton: {
     flex: 1,
-    backgroundColor: '#3182ce',
+    backgroundColor: '#111111',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
