@@ -55,6 +55,12 @@ export default function EditTripItineraryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [listData, setListData] = useState<ListItem[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<TripItineraryItem | null>(null);
+  const [tempStartHour, setTempStartHour] = useState<string>('14');
+  const [tempStartMinute, setTempStartMinute] = useState<string>('00');
+  const [tempEndHour, setTempEndHour] = useState<string>('15');
+  const [tempEndMinute, setTempEndMinute] = useState<string>('00');
 
   const fetchTripData = useCallback(async () => {
     if (typeof tripId !== 'string') return;
@@ -170,7 +176,18 @@ export default function EditTripItineraryPage() {
               <Text style={styles.timeText}>{formatTime(itineraryItem.start_time)} - {formatTime(itineraryItem.end_time)}</Text>
             </View>
             <View style={styles.itemActions}>
-              <TouchableOpacity style={styles.timeEditButton} onPress={() => {}}>
+              <TouchableOpacity style={styles.timeEditButton} onPress={() => {
+                setEditingItem(itineraryItem);
+                const start = itineraryItem.start_time?.substring(0,5) || '14:00';
+                const end = itineraryItem.end_time?.substring(0,5) || '15:00';
+                const [sh, sm] = start.split(':');
+                const [eh, em] = end.split(':');
+                setTempStartHour(sh);
+                setTempStartMinute(sm);
+                setTempEndHour(eh);
+                setTempEndMinute(em);
+                setIsTimeModalVisible(true);
+              }}>
                 <Text style={styles.timeEditButtonText}>시간 수정</Text>
               </TouchableOpacity>
               <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
@@ -224,6 +241,80 @@ export default function EditTripItineraryPage() {
           tripData={tripData}
           onItineraryAdded={fetchTripData}
         />
+        {/* 시간 변경 모달: UI만 표시 */}
+        <Modal
+          visible={isTimeModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsTimeModalVisible(false)}
+        >
+          <View style={styles.timeModalOverlay}>
+            <View style={styles.timeModalContainer}>
+              <Text style={styles.timeModalTitle}>시간 변경</Text>
+              <View style={styles.timeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.timeLabelSmall}>부터</Text>
+                  <View style={styles.selectorRow}>
+                    <FlatList
+                      data={[...Array(24)].map((_, i) => String(i).padStart(2,'0'))}
+                      keyExtractor={(h) => `sh-${h}`}
+                      style={styles.selector}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity style={[styles.selectorItem, tempStartHour===item && styles.selectorItemSelected]} onPress={() => setTempStartHour(item)}>
+                          <Text style={[styles.selectorText, tempStartHour===item && styles.selectorTextSelected]}>{item}시</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                    <FlatList
+                      data={["00","10","20","30","40","50"]}
+                      keyExtractor={(m) => `sm-${m}`}
+                      style={styles.selector}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity style={[styles.selectorItem, tempStartMinute===item && styles.selectorItemSelected]} onPress={() => setTempStartMinute(item)}>
+                          <Text style={[styles.selectorText, tempStartMinute===item && styles.selectorTextSelected]}>{item}분</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                </View>
+                <View style={{ width: 16 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.timeLabelSmall}>까지</Text>
+                  <View style={styles.selectorRow}>
+                    <FlatList
+                      data={[...Array(24)].map((_, i) => String(i).padStart(2,'0'))}
+                      keyExtractor={(h) => `eh-${h}`}
+                      style={styles.selector}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity style={[styles.selectorItem, tempEndHour===item && styles.selectorItemSelected]} onPress={() => setTempEndHour(item)}>
+                          <Text style={[styles.selectorText, tempEndHour===item && styles.selectorTextSelected]}>{item}시</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                    <FlatList
+                      data={["00","10","20","30","40","50"]}
+                      keyExtractor={(m) => `em-${m}`}
+                      style={styles.selector}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity style={[styles.selectorItem, tempEndMinute===item && styles.selectorItemSelected]} onPress={() => setTempEndMinute(item)}>
+                          <Text style={[styles.selectorText, tempEndMinute===item && styles.selectorTextSelected]}>{item}분</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                </View>
+              </View>
+              <View style={styles.timeModalActions}>
+                <TouchableOpacity style={styles.timeCancelBtn} onPress={() => setIsTimeModalVisible(false)}>
+                  <Text style={styles.timeCancelText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.timeSaveBtn} onPress={() => setIsTimeModalVisible(false)}>
+                  <Text style={styles.timeSaveText}>저장</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -430,4 +521,21 @@ const styles = StyleSheet.create({
   },
   modalAddButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#6B7280' },
+  // Time change modal styles
+  timeModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  timeModalContainer: { width: '86%', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20 },
+  timeModalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#1F2937' },
+  timeRow: { flexDirection: 'row', marginBottom: 16 },
+  timeLabelSmall: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
+  selectorRow: { flexDirection: 'row' },
+  selector: { height: 160, width: 90, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, marginRight: 12 },
+  selectorItem: { paddingVertical: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  selectorItemSelected: { backgroundColor: '#EEF2FF' },
+  selectorText: { fontSize: 14, color: '#111827' },
+  selectorTextSelected: { color: '#1D4ED8', fontWeight: '700' },
+  timeModalActions: { flexDirection: 'row', marginTop: 8 },
+  timeCancelBtn: { flex: 1, height: 44, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  timeCancelText: { fontSize: 16, color: '#111827' },
+  timeSaveBtn: { flex: 1, height: 44, backgroundColor: '#111827', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  timeSaveText: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
 });
