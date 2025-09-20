@@ -7,7 +7,7 @@ from app.services.auth_service import (
     create_access_token_for_user, regenerate_verification_code
 )
 from app.services.email_service import send_verification_email
-from app.core.security import get_password_hash, make_random_token, decode_jwt_or_raise
+from app.core.security import make_random_token, decode_jwt_or_raise
 from app.db.models import User, PendingSignup
 from datetime import datetime, timedelta
 from typing import Optional

@@ -1,11 +1,11 @@
 from pydantic import BaseModel, ConfigDict
-from datetime import date, datetime
+from datetime import date as DateType, datetime
 from typing import Optional
 
 class DiaryBase(BaseModel):
     title: str
     content: str
-    date: date
+    date: DateType
 
 class DiaryCreate(DiaryBase):
     pass
@@ -13,7 +13,7 @@ class DiaryCreate(DiaryBase):
 class DiaryUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[DateType] = None
 
 class DiaryImageRequest(BaseModel):
     title: str
