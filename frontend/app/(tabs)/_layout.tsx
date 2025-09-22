@@ -1,13 +1,18 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import HomeOn from '../../assets/homeonicon.svg';
+import HomeOff from '../../assets/homeofficon.svg';
+import BookOn from '../../assets/bookonicon.svg';
+import BookOff from '../../assets/bookofficon.svg';
+import UserOn from '../../assets/useronicon.svg';
+import UserOff from '../../assets/userofficon.svg';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
+        tabBarActiveTintColor: '#111111',
         tabBarInactiveTintColor: '#8e8e93',
         tabBarStyle: {
           backgroundColor: '#ffffff',
@@ -27,8 +32,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '홈',
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 24, marginBottom: -3 }}>🏠</Text>
+          tabBarIcon: ({ focused }) => (
+            focused ? <HomeOn width={24} height={24} /> : <HomeOff width={24} height={24} />
           ),
         }}
       />
@@ -36,8 +41,8 @@ export default function TabLayout() {
         name="diary"
         options={{
           title: '일기',
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 24, marginBottom: -3 }}>📖</Text>
+          tabBarIcon: ({ focused }) => (
+            focused ? <BookOn width={24} height={24} /> : <BookOff width={24} height={24} />
           ),
         }}
       />
@@ -45,8 +50,8 @@ export default function TabLayout() {
         name="mypage"
         options={{
           title: '마이페이지',
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: 24, marginBottom: -3 }}>👤</Text>
+          tabBarIcon: ({ focused }) => (
+            focused ? <UserOn width={24} height={24} /> : <UserOff width={24} height={24} />
           ),
         }}
       />

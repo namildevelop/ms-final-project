@@ -6,6 +6,9 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth, PlaceDetails, TripItineraryItem as TripItineraryItemWithGpt } from '../../src/context/AuthContext';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { styles } from './[tripId].styles'; 
+import ArIcon from '../../assets/aricon.svg';
+import SendOnIcon from '../../assets/sendonicon.svg';
+import SendOffIcon from '../../assets/sendofficon.svg';
 
 // --- Interfaces ---
 // The TripItineraryItem from context now includes gpt_description
@@ -54,6 +57,8 @@ export default function TripItineraryPage() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(300))[0];
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
 
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TripItineraryItem | null>(null);
@@ -272,9 +277,25 @@ export default function TripItineraryPage() {
 
   const renderScheduleTab = () => {
     const formatTime = (timeStr?: string) => timeStr ? timeStr.substring(0, 5) : '';
+    const startDateObj = new Date(start_date);
+    const currentDate = new Date(startDateObj);
+    currentDate.setDate(startDateObj.getDate() + (selectedDay - 1));
+    const dateLabel = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')} (${['일','월','화','수','목','금','토'][currentDate.getDay()]})`;
 
     return (
       <View style={styles.scheduleContent}>
+        {/* 탭 아래, 지도 위 컨트롤 바 */}
+        <View style={styles.controlBar}>
+          <TouchableOpacity style={styles.dropdown} onPress={() => setShowDateModal(true)}>
+            <Text style={styles.dropdownText}>{dateLabel}</Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+          <Text style={styles.dayBadge}>{`Day ${selectedDay}`}</Text>
+          <TouchableOpacity style={styles.editPlanLink} onPress={() => router.push({ pathname: '/edit-trip-itinerary', params: { tripId } })}>
+            <Text style={styles.editPlanLinkText}>여행 동선 편집하기</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.mapContainer}>
           <MapView
             ref={mapRef}
@@ -299,19 +320,7 @@ export default function TripItineraryPage() {
             )}
           </MapView>
         </View>
-        <View style={styles.dateSection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {uniqueDays.map(day => (
-              <TouchableOpacity 
-                key={day}
-                style={[styles.dayButton, selectedDay === day && styles.activeDayButton]}
-                onPress={() => setSelectedDay(day)}
-              >
-                <Text style={[styles.dayButtonText, selectedDay === day && styles.activeDayButtonText]}>{`Day ${day}`}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        
 
         <FlatList
           data={dailyItinerary}
@@ -320,8 +329,15 @@ export default function TripItineraryPage() {
             <TouchableOpacity onPress={() => handleItineraryItemPress(item)}>
               <View style={styles.scheduleItem}>
                 <View style={styles.scheduleInfo}>
-                  <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
-                  <Text style={styles.timeText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text>
+                  <View style={styles.itemHeaderRow}>
+                    <View>
+                      <Text style={styles.locationText}>{item.order_in_day}. {item.place_name}</Text>
+                      <Text style={styles.timeText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.navButton} onPress={() => {}}>
+                      <Text style={styles.navButtonText}>네비 연결</Text>
+                    </TouchableOpacity>
+                  </View>
                   <Text style={styles.descriptionText}>{item.description}</Text>
                 </View>
               </View>
@@ -411,7 +427,11 @@ export default function TripItineraryPage() {
             />
           </View>
           <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-            <Text style={styles.sendButtonText}>✈️</Text>
+            {isGptActive ? (
+              <SendOnIcon width={18} height={18} />
+            ) : (
+              <SendOffIcon width={18} height={18} />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -442,11 +462,11 @@ export default function TripItineraryPage() {
             )}
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{selectedItem?.place_name}</Text>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>주소</Text>
-                <Text style={styles.modalSectionText}>{selectedItem?.address || '정보 없음'}</Text>
-              </View>
+              {selectedItem?.address ? (
+                <Text style={[styles.modalSectionText, { marginBottom: 12 }]}>{selectedItem.address}</Text>
+              ) : (
+                <Text style={[styles.modalSectionText, { marginBottom: 12 }]}>정보 없음</Text>
+              )}
 
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>운영시간</Text>
@@ -480,7 +500,18 @@ export default function TripItineraryPage() {
                 )}
               </View>
             </View>
+            <View style={{ height: 90 }} />
           </ScrollView>
+        )}
+        {!isModalLoading && (
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.outlineButton} onPress={() => {}}>
+              <Text style={styles.outlineButtonText}>네비연결</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.blackButton} onPress={() => {}}>
+              <Text style={styles.blackButtonText}>포토 스팟 보기</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </SafeAreaView>
     </Modal>
@@ -495,18 +526,24 @@ export default function TripItineraryPage() {
           <Text style={styles.dateRangeText}>{start_date} - {end_date}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.actionButton}><Text style={styles.actionButtonText}>📷</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton}>
+            <ArIcon width={20} height={20} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={toggleMenu}><Text style={styles.actionButtonText}>☰</Text></TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'schedule' && styles.activeTab]} onPress={() => setActiveTab('schedule')}>
-          <Text style={[styles.tabText, activeTab === 'schedule' && styles.activeTabText]}>일정</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'chat' && styles.activeTab]} onPress={() => setActiveTab('chat')}>
-          <Text style={[styles.tabText, activeTab === 'chat' && styles.activeTabText]}>채팅</Text>
-        </TouchableOpacity>
+        <View style={styles.tabHalf}>
+          <TouchableOpacity style={[styles.tab, activeTab === 'schedule' && styles.activeTab]} onPress={() => setActiveTab('schedule')}>
+            <Text style={[styles.tabText, activeTab === 'schedule' && styles.activeTabText]}>일정</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.tabHalf}>
+          <TouchableOpacity style={[styles.tab, activeTab === 'chat' && styles.activeTab]} onPress={() => setActiveTab('chat')}>
+            <Text style={[styles.tabText, activeTab === 'chat' && styles.activeTabText]}>채팅</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={{ flex: 1 }}>
@@ -520,6 +557,32 @@ export default function TripItineraryPage() {
 
       {renderDetailModal()}
 
+      {/* 날짜/Day 선택 모달들 */}
+      {showDateModal && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, width: '80%', maxHeight: '60%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '600' }}>날짜 선택</Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}><Text style={{ fontSize: 18 }}>✕</Text></TouchableOpacity>
+            </View>
+            <ScrollView style={{ paddingHorizontal: 8 }}>
+              {uniqueDays.map(day => {
+                const d = new Date(start_date);
+                d.setDate(d.getDate() + (day - 1));
+                const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${['일','월','화','수','목','금','토'][d.getDay()]})`;
+                return (
+                  <TouchableOpacity key={`date-${day}`} style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }} onPress={() => { setSelectedDay(day); setShowDateModal(false); }}>
+                    <Text style={{ fontSize: 14 }}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+      {/* Day 모달 제거: 날짜 드롭다운만 유지 */}
+
       {isMenuOpen && <TouchableOpacity style={styles.overlay} onPress={closeMenu} activeOpacity={1} />}
       <Animated.View style={[styles.slideMenu, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.menuHeader}>
@@ -529,8 +592,8 @@ export default function TripItineraryPage() {
           <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/invite-friends', params: { tripId } }); }}>
             <Text style={styles.menuText}>친구 초대하기</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/packing-list/' + tripId }); }}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>지역/기간 수정하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push('/edit-region-dates'); }}><Text style={styles.menuText}>지역/기간 수정하기</Text></TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/edit-trip-itinerary', params: { tripId } }); }}>
             <Text style={styles.menuText}>여행 동선 편집하기</Text>
           </TouchableOpacity>

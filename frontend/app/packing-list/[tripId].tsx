@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, SafeAreaView, FlatList, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, SafeAreaView, FlatList, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, PackingListItem } from '../../src/context/AuthContext';
-import Checkbox from 'expo-checkbox';
+import { styles } from './_styles';
 
 export default function PackingListPage() {
   const router = useRouter();
@@ -80,22 +80,23 @@ export default function PackingListPage() {
     }
   };
 
-  const renderItem = ({ item }: { item: PackingListItem }) => (
-    <View style={styles.itemContainer}>
-        <Checkbox
-            style={styles.checkbox}
-            value={item.is_packed}
-            onValueChange={() => handleTogglePacked(item.id)}
-        />
-        <Text style={[styles.itemName, item.is_packed && styles.itemPacked]}>{item.item_name}</Text>
-        <TouchableOpacity onPress={() => handleDeleteItem(item.id)} style={styles.deleteButton}>
-            <Text style={styles.deleteButtonText}>삭제</Text>
+  const renderItem = (item: PackingListItem) => (
+    <View key={item.id} style={[styles.row, item.is_packed ? styles.rowChecked : undefined]}>
+        <TouchableOpacity 
+          style={[styles.checkbox, item.is_packed && styles.checkboxChecked]}
+          onPress={() => handleTogglePacked(item.id)}
+        >
+          {item.is_packed && <Text style={styles.checkboxMark}>✓</Text>}
         </TouchableOpacity>
-    </View>
+        <Text style={[styles.itemText, item.is_packed && styles.itemTextChecked]}>{item.item_name}</Text>
+        <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteItem(item.id)}>
+          <Text style={styles.deleteText}>삭제</Text>
+        </TouchableOpacity>
+      </View>
   );
 
   if (isLoading) {
-    return <SafeAreaView style={[styles.container, styles.centered]}><ActivityIndicator size="large" /></SafeAreaView>;
+    return <SafeAreaView style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}><ActivityIndicator size="large" /></SafeAreaView>;
   }
 
   return (
@@ -106,150 +107,43 @@ export default function PackingListPage() {
         </TouchableOpacity>
         <Text style={styles.title}>준비물 체크하기</Text>
         <TouchableOpacity onPress={() => setIsModalVisible(true)}>
-          <Text style={styles.addButton}>추가하기</Text>
+          <Text style={styles.addActionText}>준비물 추가하기</Text>
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={items}
-        renderItem={renderItem}
-        keyExtractor={item => item.id.toString()}
-        ListEmptyComponent={<View style={styles.centered}><Text>준비물이 없습니다.</Text></View>}
-      />
+      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+        {items.map(item => renderItem(item))}
+      </ScrollView>
 
       <Modal
-        animationType="fade"
-        transparent={true}
         visible={isModalVisible}
+        transparent
+        animationType="fade"
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>준비물 추가하기</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="항목 이름"
-              value={newItemName}
-              onChangeText={setNewItemName}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
-                <Text style={styles.buttonText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleAddItem}>
-                <Text style={styles.buttonText}>저장</Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>준비물 추가</Text>
+              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                <Text style={styles.close}>✕</Text>
               </TouchableOpacity>
             </View>
+            <TextInput
+              style={styles.input}
+              placeholder="예: 칫솔, 충전기"
+              placeholderTextColor="#999"
+              value={newItemName}
+              onChangeText={setNewItemName}
+              onSubmitEditing={handleAddItem}
+              returnKeyType="done"
+            />
+            <TouchableOpacity style={styles.addBtn} onPress={handleAddItem}>
+              <Text style={styles.addBtnText}>추가</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  backButton: {
-    fontSize: 18,
-    color: '#007AFF',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    fontSize: 18,
-    color: '#007AFF',
-  },
-  itemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  checkbox: {
-    marginRight: 15,
-  },
-  itemName: {
-    flex: 1,
-    fontSize: 16,
-  },
-  itemPacked: {
-    textDecorationLine: 'line-through',
-    color: '#999',
-  },
-  deleteButton: {
-    padding: 8,
-    backgroundColor: '#FF3B30',
-    borderRadius: 5,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContainer: {
-    width: '80%',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  button: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#999',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-});

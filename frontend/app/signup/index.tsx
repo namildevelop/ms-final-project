@@ -132,11 +132,11 @@ const Signup: React.FC = () => {
   };
 
   const handleViewTerms = () => {
-    Alert.alert('이용약관', '이용약관 내용이 여기에 표시됩니다.');
+    router.push('/signup-terms');
   };
 
   const handleViewPrivacy = () => {
-    Alert.alert('개인정보 수집 및 이용', '개인정보 수집 및 이용 내용이 여기에 표시됩니다.');
+    router.push('/signup-privacy');
   };
 
   return (
@@ -150,7 +150,7 @@ const Signup: React.FC = () => {
           <Text style={styles.inputLabel}>닉네임 (필수)</Text>
           <TextInput
             style={styles.inputField}
-            placeholder="닉네임을 입력하세요."
+            placeholder="한글 2자 이상 입력하세요."
             placeholderTextColor="#999"
             value={nickname}
             onChangeText={(text) => {
@@ -230,31 +230,29 @@ const Signup: React.FC = () => {
             <Text style={styles.checkboxText}>만 14세 이상입니다.</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.checkboxRow}
-            onPress={() => setTermsCheck(!termsCheck)}
-          >
-            <View style={[styles.checkbox, termsCheck && styles.checkboxChecked]}>
-              {termsCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxText}>이용약관</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity onPress={() => setTermsCheck(!termsCheck)} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={[styles.checkbox, termsCheck && styles.checkboxChecked]}>
+                {termsCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxText}>이용약관 (필수)</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleViewTerms}>
               <Text style={styles.linkText}>보기</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
           
-          <TouchableOpacity 
-            style={styles.checkboxRow}
-            onPress={() => setPrivacyCheck(!privacyCheck)}
-          >
-            <View style={[styles.checkbox, privacyCheck && styles.checkboxChecked]}>
-              {privacyCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxText}>개인정보 수집 및 이용동의</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity onPress={() => setPrivacyCheck(!privacyCheck)} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={[styles.checkbox, privacyCheck && styles.checkboxChecked]}>
+                {privacyCheck && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxText}>개인정보 수집 및 이용동의 (필수)</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleViewPrivacy}>
               <Text style={styles.linkText}>보기</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
       

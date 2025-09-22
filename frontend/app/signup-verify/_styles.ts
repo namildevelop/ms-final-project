@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryBtn: {
-    backgroundColor: '#0d6efd',
+    backgroundColor: '#000000',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -91,4 +91,3 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

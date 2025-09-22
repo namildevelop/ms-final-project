@@ -14,25 +14,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  appTitle: {
-    flexDirection: 'row',
-    marginBottom: 30,
-  },
-  airText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#007bff',
-  },
-  travelText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  loginTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 30,
+  logoContainer: {
+    marginTop: 40,
+    marginBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   form: {
     width: '100%',
@@ -47,24 +33,18 @@ export const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     marginBottom: 15,
   },
-  errorContainer: {
-    backgroundColor: '#f8d7da',
-    borderWidth: 1,
-    borderColor: '#f5c6cb',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 10,
-  },
-  errorMessage: {
+  errorInlineText: {
     color: '#dc3545',
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 12,
+    marginBottom: 8,
+    marginLeft: 5,
   },
   loginButton: {
-    backgroundColor: '#007bff',
-    padding: 15,
+    backgroundColor: '#000000',
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 24,
   },
   loginButtonDisabled: {
     backgroundColor: '#6c757d',
@@ -75,21 +55,27 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   forgotPassword: {
+    marginTop: 10,
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#007bff',
+    color: '#000000',
     fontSize: 14,
     textDecorationLine: 'underline',
+    textAlign: 'center',
+  },
+  footerActions: {
+    width: '100%',
+    marginTop: 10,
   },
   emailSignupButton: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#007bff',
-    padding: 15,
+    borderColor: '#000000',
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
     width: '100%',
   },
   emailSignupText: {
@@ -104,7 +90,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#ddd',
-    padding: 15,
+    paddingVertical: 12,
     borderRadius: 8,
     width: '100%',
   },
@@ -127,4 +113,3 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-

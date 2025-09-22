@@ -24,14 +24,12 @@ const SignupVerify: React.FC = () => {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const isValid = useMemo(() => codeInput.length === 6, [codeInput]);
-
   const handleComplete = async () => {
     if (!email) {
         setErrorMsg('이메일 정보가 없습니다. 다시 시도해주세요.');
         return;
     }
-    if (!isValid) {
+    if (codeInput.length !== 6) {
       setErrorMsg('6자리 코드를 입력해주세요.');
       return;
     }

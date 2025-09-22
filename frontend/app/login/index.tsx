@@ -17,6 +17,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { styles } from './_styles';
 import { useAuth } from '../../src/context/AuthContext';
+import Logo from '../../assets/logo.svg';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -110,13 +111,12 @@ const Login: React.FC = () => {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          <View style={styles.appTitle}>
-            <Text style={styles.airText}>Air</Text>
-            <Text style={styles.travelText}>Travel</Text>
+          {/* 로고 */}
+          <View style={styles.logoContainer}>
+            <Logo width={150} height={80} />
           </View>
           
-          <Text style={styles.loginTitle}>로그인</Text>
-          
+          {/* 로그인 폼 */}
           <View style={styles.form}>
             <TextInput
               style={styles.inputField}
@@ -140,12 +140,12 @@ const Login: React.FC = () => {
               autoCorrect={false}
             />
             
+            {/* 에러 메시지 영역 */}
             {errorMessage ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorMessage}>{errorMessage}</Text>
-              </View>
+              <Text style={styles.errorInlineText}>{errorMessage}</Text>
             ) : null}
             
+            {/* 로그인 버튼 */}
             <TouchableOpacity 
               style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
               onPress={handleLogin}
@@ -154,41 +154,47 @@ const Login: React.FC = () => {
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.loginButtonText}>로그인</Text>
+                <Text style={styles.loginButtonText}>로그인 하기</Text>
               )}
             </TouchableOpacity>
           </View>
           
+          {/* 비밀번호 찾기 */}
           <TouchableOpacity 
             onPress={handleForgotPassword}
             style={styles.forgotPassword}
           >
             <Text style={styles.forgotPasswordText}>비밀번호를 잊어버리셨나요?</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={handleEmailSignup}
-            style={styles.emailSignupButton}
-          >
-            <Text style={styles.emailSignupText}>이메일로 가입하기</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={handleGoogleLogin}
-            style={[styles.googleLoginButton, isGoogleLoading && styles.loginButtonDisabled]}
-            disabled={isGoogleLoading || !request}
-          >
-            {isGoogleLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <View style={styles.googleIcon}>
-                  <Text style={styles.googleIconText}>G</Text>
-                </View>
-                <Text style={styles.googleLoginText}>구글 로그인</Text>
-              </>
-            )}
-          </TouchableOpacity>
+
+          {/* 하단 액션 영역 */}
+          <View style={styles.footerActions}>
+            {/* 이메일로 가입하기 */}
+            <TouchableOpacity 
+              onPress={handleEmailSignup}
+              style={styles.emailSignupButton}
+            >
+              <Text style={styles.emailSignupText}>이메일로 가입하기</Text>
+            </TouchableOpacity>
+            
+            {/* 구글 로그인 */}
+            <TouchableOpacity 
+              onPress={handleGoogleLogin}
+              style={[styles.googleLoginButton, isGoogleLoading && styles.loginButtonDisabled]}
+              disabled={isGoogleLoading || !request}
+            >
+              {isGoogleLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <View style={styles.googleIcon}>
+                    <Text style={styles.googleIconText}>G</Text>
+                  </View>
+                  <Text style={styles.googleLoginText}>구글로 로그인 하기</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

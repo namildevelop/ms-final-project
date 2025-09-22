@@ -13,8 +13,8 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 30,
+    color: '#111111',
+    marginBottom: 24,
   },
   inputSection: {
     marginBottom: 25,
@@ -27,17 +27,18 @@ export const styles = StyleSheet.create({
   },
   inputField: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e5e7eb',
     borderRadius: 8,
-    padding: 15,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
     fontSize: 16,
     backgroundColor: '#ffffff',
     marginBottom: 8,
   },
   errorMessage: {
-    color: '#dc3545',
-    fontSize: 14,
-    marginTop: 5,
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
   },
   checkboxContainer: {
     marginBottom: 20,
@@ -58,26 +59,27 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   checkboxText: {
     fontSize: 14,
-    color: '#333333',
+    color: '#111111',
     flex: 1,
   },
   linkText: {
-    color: '#007bff',
+    color: '#2563eb',
     textDecorationLine: 'underline',
     fontSize: 14,
   },
   buttonContainer: {
     marginTop: 'auto',
     marginBottom: 20,
+    paddingHorizontal: 20,
   },
   signupButton: {
-    backgroundColor: '#007bff',
-    padding: 15,
+    backgroundColor: '#000000',
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 10,
@@ -93,8 +95,8 @@ export const styles = StyleSheet.create({
   backButton: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
+    borderColor: '#e5e7eb',
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -104,4 +106,3 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

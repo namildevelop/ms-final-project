@@ -165,7 +165,6 @@ const AdditionalInfo: React.FC = () => {
             keyboardType="phone-pad"
             maxLength={11}
           />
-          <Text style={styles.checkMessage}>체크 메시지 영역</Text>
         </View>
         
         {/* 주소 */}
@@ -191,34 +190,31 @@ const AdditionalInfo: React.FC = () => {
           <Text style={styles.inputLabel}>생년월일 (선택)</Text>
           <View style={styles.dateContainer}>
             <View style={styles.datePicker}>
-              <Text style={styles.dateLabel}>년</Text>
               <TouchableOpacity 
                 style={styles.dropdown}
                 onPress={() => setShowYearModal(true)}
               >
-                <Text style={styles.dropdownText}>{year || '선택'}</Text>
+                <Text style={styles.dropdownText}>{year || '년'}</Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
             </View>
             
             <View style={styles.datePicker}>
-              <Text style={styles.dateLabel}>월</Text>
               <TouchableOpacity 
                 style={styles.dropdown}
                 onPress={() => setShowMonthModal(true)}
               >
-                <Text style={styles.dropdownText}>{month || '선택'}</Text>
+                <Text style={styles.dropdownText}>{month || '월'}</Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
             </View>
             
             <View style={styles.datePicker}>
-              <Text style={styles.dateLabel}>일</Text>
               <TouchableOpacity 
                 style={styles.dropdown}
                 onPress={() => setShowDayModal(true)}
               >
-                <Text style={styles.dropdownText}>{day || '선택'}</Text>
+                <Text style={styles.dropdownText}>{day || '일'}</Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
             </View>

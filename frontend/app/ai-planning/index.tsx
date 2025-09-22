@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { API_URL } from '@env';
 
 const AIPlanningPage: React.FC = () => {
   const router = useRouter();
@@ -174,4 +173,3 @@ const styles = StyleSheet.create({
 });
 
 export default AIPlanningPage;
-

@@ -24,23 +24,23 @@ const TripPreferencesPage: React.FC = () => {
   // 관심사 선택 (중복 선택 가능)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   
-  // 숙박 선택 (중복 선택 가능)
+// 숙박 선택 (중복 선택 가능)
   const [selectedAccommodation, setSelectedAccommodation] = useState<string[]>([]);
   
-  // 최신 트렌드 반영 (체크박스)
+// 최신 트렌드 반영 (체크박스)
   const [reflectTrends, setReflectTrends] = useState(false);
 
   // 교통방식 옵션
   const transportationOptions = ['차량(렌트)', '대중교통', '도보'];
   
-  // 관심사 옵션
+// 관심사 옵션
   const interestOptions = [
     '문화/역사', '자연/경치', '쇼핑', '음식/맛집', 
     '엔터테인먼트', '휴양/힐링', '액티비티/스포츠', 
     '무장애관광', '반려동물동반'
   ];
   
-  // 숙박 옵션
+// 숙박 옵션
   const accommodationOptions = ['호텔', '리조트', '게스트하우스', '펜션'];
 
   // 교통방식 토글
@@ -89,7 +89,7 @@ const TripPreferencesPage: React.FC = () => {
       const newTrip = await createTrip(tripData);
 
       if (newTrip) {
-        router.replace({ 
+        router.replace({
           pathname: '/ai-planning',
           params: { tripId: newTrip.id }
         });
@@ -137,7 +137,6 @@ const TripPreferencesPage: React.FC = () => {
           <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.title}>여행 계획 만들기</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -240,13 +239,14 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    gap: 8,
   },
   backButton: {
     padding: 8,
@@ -260,9 +260,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a202c',
   },
-  placeholder: {
-    width: 40,
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 20,
@@ -349,7 +347,7 @@ const styles = StyleSheet.create({
   previousButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#3182ce',
+    borderColor: '#111111',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -358,11 +356,11 @@ const styles = StyleSheet.create({
   previousButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3182ce',
+    color: '#111111',
   },
   completeButton: {
     flex: 1,
-    backgroundColor: '#3182ce',
+    backgroundColor: '#111111',
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -376,5 +374,3 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
-
-export default TripPreferencesPage;

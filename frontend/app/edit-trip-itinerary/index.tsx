@@ -169,9 +169,14 @@ export default function EditTripItineraryPage() {
               <Text style={styles.locationText}>{itineraryItem.place_name}</Text>
               <Text style={styles.timeText}>{formatTime(itineraryItem.start_time)} - {formatTime(itineraryItem.end_time)}</Text>
             </View>
-            <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
-              <Text style={{ fontSize: 22, color: '#888' }}>≡</Text>
-            </TouchableOpacity>
+            <View style={styles.itemActions}>
+              <TouchableOpacity style={styles.timeEditButton} onPress={() => {}}>
+                <Text style={styles.timeEditButtonText}>시간 수정</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
+                <Text style={{ fontSize: 22, color: '#888' }}>≡</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Swipeable>
       </ScaleDecorator>
@@ -191,11 +196,8 @@ export default function EditTripItineraryPage() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backButton}>←</Text>
           </TouchableOpacity>
-          <View style={styles.headerTitle}>
-            <Text style={styles.regionText}>{title}</Text>
-            <Text style={styles.dateRangeText}>{start_date} - {end_date}</Text>
-          </View>
-           <View style={{ width: 24 }} />
+          <Text style={styles.headerSimpleTitle}>여행 동선 편집하기</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -349,7 +351,7 @@ const AddItineraryModal = ({ visible, onClose, tripId, tripData, onItineraryAdde
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
@@ -358,6 +360,7 @@ const styles = StyleSheet.create({
   headerTitle: { alignItems: 'center' },
   regionText: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
   dateRangeText: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  headerSimpleTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', textAlign: 'left', flex: 1, marginLeft: 10 },
   dayHeader: {
     paddingTop: 20, paddingBottom: 10, paddingHorizontal: 15, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
   },
@@ -368,6 +371,9 @@ const styles = StyleSheet.create({
   draggingItem: { backgroundColor: '#E0E7FF' },
   dragHandle: { padding: 10, alignItems: 'center', justifyContent: 'center' },
   scheduleInfo: { flex: 1 },
+  itemActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timeEditButton: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#3B82F6', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  timeEditButtonText: { color: '#3B82F6', fontSize: 12, fontWeight: '600' },
   locationText: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 4 },
   timeText: { fontSize: 14, color: '#6B7280', marginBottom: 6 },
   deleteButton: {
@@ -378,9 +384,9 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 30, left: 20, right: 20, alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#3B82F6', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
+    backgroundColor: '#FFFFFF', paddingVertical: 15, paddingHorizontal: 60, borderRadius: 30, borderWidth: 1, borderColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 2,
   },
-  addButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  addButtonText: { color: '#000000', fontSize: 16, fontWeight: 'bold' },
   // Modal Styles
   modalOverlay: {
     flex: 1,
@@ -389,7 +395,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     height: '95%',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
