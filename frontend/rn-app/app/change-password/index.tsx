@@ -43,7 +43,6 @@ const ChangePassword: React.FC = () => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>비밀번호 변경</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -147,7 +146,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
@@ -161,6 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000000',
+    marginLeft: 12,
   },
   headerSpacer: {
     width: 24,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   changeButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#111111',
     borderRadius: 8,
     paddingVertical: 15,
     alignItems: 'center',

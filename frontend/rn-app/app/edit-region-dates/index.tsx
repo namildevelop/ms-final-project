@@ -21,7 +21,6 @@ const EditRegionDatesPage: React.FC = () => {
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
-  const [tripTitle, setTripTitle] = useState('');
   const memberInputRef = useRef<TextInput | null>(null);
   const [memberCount, setMemberCount] = useState<string>('1');
   const [companionRelation, setCompanionRelation] = useState<string>('');
@@ -90,20 +89,6 @@ const EditRegionDatesPage: React.FC = () => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 여행 제목 입력 */}
-        <View style={styles.section}>
-          <Text style={styles.inputLabel}>여행 제목 (필수)</Text>
-          <View style={styles.inputFieldWrapper}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="여행 제목을 입력하세요."
-              placeholderTextColor="#9ca3af"
-              value={tripTitle}
-              onChangeText={setTripTitle}
-            />
-          </View>
-        </View>
-
         {/* 여행 기간 입력 섹션 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>여행 기간 입력 (필수)</Text>

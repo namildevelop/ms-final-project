@@ -30,8 +30,8 @@ const MyPage = () => {
 
   const menuItems = [
     { title: '프로필 수정', onPress: () => router.push('/profile-edit') },
-    { title: '비밀번호 변경', onPress: () => {} },
-    { title: '설정', onPress: () => {} },
+    { title: '비밀번호 변경', onPress: () => router.push('/change-password') },
+    { title: '설정', onPress: () => router.push('/settings') },
     { title: '로그아웃', onPress: handleLogout },
   ];
 
