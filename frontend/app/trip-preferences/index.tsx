@@ -19,9 +19,9 @@ const TripPreferencesPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Destructure and validate params
-  const { startDate, endDate, country, region } = params;
+  const { title, startDate, endDate, country, region, members, relation } = params;
 
-  if (!startDate || !endDate || !country || !region) {
+  if (!startDate || !endDate || !country || !region || !members) {
     console.error('Missing required trip parameters:', params);
     Alert.alert('오류', '필수 여행 정보가 누락되었습니다. 다시 시도해주세요.', [
       { text: '확인', onPress: () => router.back() }
@@ -85,19 +85,23 @@ const TripPreferencesPage: React.FC = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      const tripData = {
-        title: `${region} 여행`, // Use validated region
-        start_date: startDate, // Use validated startDate
-        end_date: endDate,     // Use validated endDate
-        destination_country: country, // Use validated country
-        destination_city: region,    // Use validated region
-        transport_method: selectedTransportation.join(', '),
-        accommodation: selectedAccommodation.join(', '),
-        interests: selectedInterests,
-        trend: reflectTrends,
+      const requestBody = {
+        trip_data: {
+          title: title as string,
+          start_date: startDate as string,
+          end_date: endDate as string,
+          destination_country: country as string,
+          destination_city: region as string,
+          transport_method: selectedTransportation.join(', '),
+          accommodation: selectedAccommodation.join(', '),
+          interests: selectedInterests,
+          trend: reflectTrends,
+        },
+        member_count: parseInt(members as string),
+        companion_relation: relation as string || null,
       };
 
-      const newTrip = await createTrip(tripData);
+      const newTrip = await createTrip(requestBody);
 
       if (newTrip) {
         router.replace({

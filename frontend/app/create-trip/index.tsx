@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+
+const PRIMARY_SKY = '#1DA1F2';
 
 const CreateTripPage: React.FC = () => {
   const router = useRouter();
@@ -17,8 +20,13 @@ const CreateTripPage: React.FC = () => {
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
+  const [tripTitle, setTripTitle] = useState('');
+  const [memberCount, setMemberCount] = useState<string>('1');
+  const [companionRelation, setCompanionRelation] = useState<string>('');
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showRegionModal, setShowRegionModal] = useState(false);
+  const [showRelationModal, setShowRelationModal] = useState(false);
+  const memberInputRef = useRef<TextInput | null>(null);
 
   // 현재 월의 첫 번째 날과 마지막 날 계산
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -111,7 +119,11 @@ const CreateTripPage: React.FC = () => {
   };
 
   // 다음 단계로 이동
-  const goToNextStep = () => {
+    const goToNextStep = () => {
+    if (!tripTitle.trim()) {
+      Alert.alert('알림', '여행 제목을 입력해주세요.');
+      return;
+    }
     if (!selectedStartDate || !selectedEndDate) {
       Alert.alert('알림', '여행 기간을 선택해주세요.');
       return;
@@ -120,23 +132,36 @@ const CreateTripPage: React.FC = () => {
       Alert.alert('알림', '여행 지역을 선택해주세요.');
       return;
     }
+
+    const formatLocalDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
     
     // 여행 성향 설정 페이지로 이동
     console.log('선택된 정보:', {
-      startDate: selectedStartDate,
-      endDate: selectedEndDate,
+      title: tripTitle,
+      startDate: formatLocalDate(selectedStartDate),
+      endDate: formatLocalDate(selectedEndDate),
       country: selectedCountry,
       region: selectedRegion,
-      duration: getTripDuration()
+      duration: getTripDuration(),
+      members: memberCount,
+      relation: companionRelation,
     });
     
     router.replace({
       pathname: '/trip-preferences',
       params: {
-        startDate: selectedStartDate.toISOString().split('T')[0], // YYYY-MM-DD 형식으로 변환
-        endDate: selectedEndDate.toISOString().split('T')[0],     // YYYY-MM-DD 형식으로 변환
+        title: tripTitle,
+        startDate: formatLocalDate(selectedStartDate),
+        endDate: formatLocalDate(selectedEndDate),
         country: selectedCountry,
         region: selectedRegion,
+        members: memberCount,
+        relation: companionRelation,
       }
     });
   };
@@ -159,29 +184,41 @@ const CreateTripPage: React.FC = () => {
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>여행 계획 만들기</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 여행 제목 입력 */}
+        <View style={styles.section}>
+          <Text style={styles.inputLabel}>여행 제목 (필수)</Text>
+          <View style={styles.inputFieldWrapper}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="여행 제목을 입력하세요."
+              placeholderTextColor="#9ca3af"
+              value={tripTitle}
+              onChangeText={setTripTitle}
+            />
+          </View>
+        </View>
         {/* 여행 기간 입력 섹션 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>여행 기간 입력</Text>
+          <Text style={styles.sectionTitle}>여행 기간 입력 (필수)</Text>
           
           {/* 달력 */}
           <View style={styles.calendarSection}>
             {/* 월 네비게이션 */}
             <View style={styles.monthNavigation}>
               <TouchableOpacity onPress={() => changeMonth('prev')}>
-                <Text style={styles.navArrow}>‹</Text>
+                <Text style={styles.navArrow}>←</Text>
               </TouchableOpacity>
               <Text style={styles.monthYear}>
                 {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
               </Text>
               <TouchableOpacity onPress={() => changeMonth('next')}>
-                <Text style={styles.navArrow}>›</Text>
+                <Text style={styles.navArrow}>→</Text>
               </TouchableOpacity>
             </View>
 
@@ -192,31 +229,37 @@ const CreateTripPage: React.FC = () => {
               ))}
             </View>
 
-            {/* 달력 그리드 */}
+            {/* 달력 그리드 (홈 화면 스타일) */}
             <View style={styles.calendarGrid}>
-              {calendarDays.map((date, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.calendarDay,
-                    !isCurrentMonth(date) && styles.otherMonthDay,
-                    isToday(date) && styles.today,
-                    isInSelectedRange(date) && styles.selectedRange,
-                    isSelectedStartDate(date) && styles.selectedStartDate,
-                    isSelectedEndDate(date) && styles.selectedEndDate,
-                  ]}
-                  onPress={() => selectDate(date)}
-                >
-                  <Text style={[
-                    styles.dayText,
-                    !isCurrentMonth(date) && styles.otherMonthDayText,
-                    isToday(date) && styles.todayText,
-                    isInSelectedRange(date) && styles.selectedRangeText,
-                  ]}>
-                    {date.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {calendarDays.map((date, index) => {
+                const isStart = isSelectedStartDate(date);
+                const isEnd = isSelectedEndDate(date);
+                const isRangeMid = isInSelectedRange(date) && !isStart && !isEnd;
+                return (
+                  <View key={index} style={styles.dayCell}>
+                    <TouchableOpacity
+                      style={[
+                        styles.dayButton,
+                        isToday(date) && styles.todayButton,
+                        (isStart || isEnd) && styles.selectedDayButton,
+                        isRangeMid && styles.inRangeButton,
+                      ]}
+                      onPress={() => selectDate(date)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          !isCurrentMonth(date) && styles.otherMonthDayText,
+                          isToday(date) && styles.todayText,
+                          (isStart || isEnd) && styles.selectedDayText,
+                        ]}
+                      >
+                        {date.getDate()}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
 
           </View>
@@ -231,9 +274,10 @@ const CreateTripPage: React.FC = () => {
           </View>
         )}
 
-        {/* 여행 지역 섹션 */}
+        {/* 여행 지역 섹션 */
+        }
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>여행 지역</Text>
+          <Text style={styles.sectionTitle}>여행 지역 (필수)</Text>
           
           <View style={styles.regionContainer}>
             {/* 국가 선택 */}
@@ -271,6 +315,51 @@ const CreateTripPage: React.FC = () => {
                 !selectedCountry && styles.disabledArrow
               ]}>▼</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 인원 및 동반자 관계 */}
+        <View style={styles.section}>
+          <View style={styles.regionContainer}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>인원 (필수)</Text>
+              <TouchableOpacity
+                activeOpacity={1}
+                style={styles.regionDropdown}
+                onPress={() => memberInputRef.current?.focus()}
+              >
+                <TextInput
+                  ref={memberInputRef}
+                  style={[styles.dropdownText, { flex: 1 }]}
+                  value={memberCount}
+                  onChangeText={(t) => {
+                    setMemberCount(t.replace(/[^0-9]/g, ''));
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="1"
+                  placeholderTextColor="#999999"
+                />
+                <Text style={styles.dropdownArrow}>명</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>동반자와의 관계 (선택)</Text>
+              <TouchableOpacity
+                style={styles.regionDropdown}
+                onPress={() => setShowRelationModal(true)}
+              >
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    companionRelation ? styles.selectedDropdownText : styles.placeholderText,
+                  ]}
+                >
+                  {companionRelation || '선택하세요.'}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -334,6 +423,34 @@ const CreateTripPage: React.FC = () => {
           </View>
         </View>
       )}
+
+      {/* 동반자 관계 모달 */}
+      {showRelationModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>동반자와의 관계</Text>
+              <TouchableOpacity onPress={() => setShowRelationModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalOptions}>
+              {['가족', '친구', '연인', '회사동료'].map(rel => (
+                <TouchableOpacity
+                  key={rel}
+                  style={styles.optionItem}
+                  onPress={() => {
+                    setCompanionRelation(rel);
+                    setShowRelationModal(false);
+                  }}
+                >
+                  <Text style={styles.optionText}>{rel}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -345,13 +462,14 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    gap: 8,
   },
   backButton: {
     padding: 8,
@@ -365,9 +483,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a202c',
   },
-  placeholder: {
-    width: 40,
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 20,
@@ -375,32 +491,55 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 30,
   },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a202c',
+    marginBottom: 10,
+  },
+  inputFieldWrapper: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+  },
+  textInput: {
+    fontSize: 16,
+    color: '#1f2937',
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1a202c',
     marginBottom: 20,
   },
   calendarSection: {
-    backgroundColor: '#3182ce',
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 20,
+    shadowColor: '#a5a5a5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   monthNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 25,
   },
   navArrow: {
     fontSize: 24,
-    color: '#ffffff',
+    color: '#8e8e93',
     fontWeight: 'bold',
   },
   monthYear: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1c1c1e',
   },
   weekHeader: {
     flexDirection: 'row',
@@ -409,77 +548,73 @@ const styles = StyleSheet.create({
   weekDay: {
     flex: 1,
     textAlign: 'center',
-    color: '#ffffff',
-    fontSize: 14,
+    color: '#8e8e93',
+    fontSize: 13,
     fontWeight: '500',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  calendarDay: {
+  dayCell: {
     width: '14.28%',
     aspectRatio: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
   },
-  otherMonthDay: {
-    opacity: 0.5,
-  },
-  today: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+  dayButton: {
     width: 36,
     height: 36,
-  },
-  selectedRange: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
-  },
-  selectedStartDate: {
-    backgroundColor: '#ffffff',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
-  },
-  selectedEndDate: {
-    backgroundColor: '#ffffff',
-    borderRadius: 0,
-    width: 36,
-    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   dayText: {
-    color: '#ffffff',
     fontSize: 16,
-    fontWeight: '500',
+    color: '#1c1c1e',
+  },
+  todayButton: {
+    backgroundColor: PRIMARY_SKY,
+  },
+  todayText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  selectedDayButton: {
+    backgroundColor: '#111111',
+  },
+  selectedDayText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  inRangeButton: {
+    backgroundColor: '#f0f0f0',
   },
   otherMonthDayText: {
     color: '#cbd5e0',
   },
-  todayText: {
-    color: '#3182ce',
-    fontWeight: 'bold',
-  },
-  selectedRangeText: {
-    color: '#1a202c',
-    fontWeight: '600',
-  },
   durationDisplay: {
     marginTop: 20,
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   durationText: {
     color: '#333333',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
   },
   regionContainer: {
     flexDirection: 'row',
     gap: 15,
+  },
+  formField: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
+    fontWeight: '600',
   },
   regionDropdown: {
     flex: 1,
@@ -522,7 +657,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   nextButton: {
-    backgroundColor: '#3182ce',
+    backgroundColor: '#111111',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',

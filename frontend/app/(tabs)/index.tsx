@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Image, // Import Image component
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TranslateIcon from '../../assets/tanslateicon.svg';
@@ -14,12 +15,23 @@ import ArIcon from '../../assets/aricon.svg';
 import NoticeOffIcon from '../../assets/noticeofficon.svg';
 import { useAuth } from '../../src/context/AuthContext';
 
+interface TripMember {
+  id: number;
+  role: string; // Add role
+  joined_at: string; // Add joined_at
+  user: { // Nested user object
+    id: number;
+    nickname: string;
+    profile_image_url?: string;
+  };
+}
+
 interface Trip {
   id: number;
   title: string;
   start_date: string;
   end_date: string;
-  member_count: number;
+  members: TripMember[]; // Add members array
 }
 
 const PRIMARY_SKY = '#1DA1F2';
@@ -179,11 +191,17 @@ const HomeScreen: React.FC = () => {
           </Text>
           <View style={styles.memberRow}>
             <Text style={[styles.memberCount, isFinished && styles.finishedText]}>
-              {trip.member_count}명 참여
+              {trip.members.length}명 참여
             </Text>
             <View style={styles.avatarStack}>
-              {[0,1,2,3,4].map((i) => (
-                <View key={i} style={[styles.avatarCircle, { left: i * 16 }]} />
+              {trip.members.slice(0, 5).map((member, i) => (
+                <View key={member.id} style={[styles.avatarCircle, { left: i * 16 }]}>
+                  {member.user.profile_image_url ? (
+                    <Image source={{ uri: member.user.profile_image_url }} style={styles.avatarImage} />
+                  ) : (
+                    <Text style={styles.defaultAvatarText}>👤</Text> // Default user icon
+                  )}
+                </View>
               ))}
             </View>
           </View>
@@ -280,7 +298,7 @@ const HomeScreen: React.FC = () => {
               {categorizedTrips.finished.length > 0 && (
                 <View style={styles.tripCategory}>
                   <Text style={styles.sectionTitle}>종료된 여행</Text>
-                  {categorizedTrips.finished.map(trip => renderTripCard(trip, 'finished'))}
+                  {categorizedTriizedTrips.finished.map(trip => renderTripCard(trip, 'finished'))}
                 </View>
               )}
             </>
@@ -474,6 +492,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#cbd5e1',
     borderWidth: 2,
     borderColor: '#ffffff',
+    overflow: 'hidden', // Clip image to circle
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  defaultAvatarText: {
+    fontSize: 16,
   },
   finishedText: {
     color: '#a0aec0',

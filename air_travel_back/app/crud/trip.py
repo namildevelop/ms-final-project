@@ -104,7 +104,7 @@ def add_trip_member(db: Session, trip_id: int, user_id: int):
     db.refresh(db_member)
     return db_member
 
-def generate_and_save_trip_plan(db: Session, trip_id: int):
+def generate_and_save_trip_plan(db: Session, trip_id: int, member_count: int, companion_relation: Optional[str]):
     logger.info(f"Starting plan generation for trip_id: {trip_id}")
     db_trip = db.query(Trip).options(joinedload(Trip.interests)).filter(Trip.id == trip_id).first()
     if not db_trip:
@@ -120,7 +120,9 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
         "transport_method": db_trip.transport_method,
         "accommodation": db_trip.accommodation,
         "trend": db_trip.trend,
-        "interests": [interest.interest for interest in db_trip.interests]
+        "interests": [interest.interest for interest in db_trip.interests],
+        "member_count": member_count,
+        "companion_relation": companion_relation
     }
 
     try:
@@ -172,7 +174,7 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
 
 def get_trip_by_id(db: Session, trip_id: int):
     return db.query(Trip).options(
-        joinedload(Trip.members),
+        joinedload(Trip.members).joinedload(TripMember.user),
         joinedload(Trip.interests),
         joinedload(Trip.itinerary_items),
         joinedload(Trip.chats),
@@ -180,7 +182,7 @@ def get_trip_by_id(db: Session, trip_id: int):
     ).filter(Trip.id == trip_id).first()
 
 def get_trips_by_user_id(db: Session, user_id: int):
-    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).options(joinedload(Trip.members)).all()
+    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).options(joinedload(Trip.members).joinedload(TripMember.user)).all()
 
 def get_itinerary_item(db: Session, item_id: int):
     return db.query(TripItineraryItem).filter(TripItineraryItem.id == item_id).first()
@@ -248,6 +250,8 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         "end_date": str(db_trip.end_date),
         "destination_country": db_trip.destination_country,
         "destination_city": db_trip.destination_city,
+        "member_count": db_trip.member_count,
+        "companion_relation": db_trip.companion_relation
     }
     
     try:

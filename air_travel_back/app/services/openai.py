@@ -24,6 +24,8 @@ def generate_trip_plan_with_gpt(trip_details: Dict[str, Any]) -> Dict[str, Any]:
 - 교통 방식: {trip_details.get('transport_method', '미정')}
 - 숙박: {trip_details.get('accommodation', '미정')}
 - 관심사: {', '.join(trip_details.get('interests', []))}
+- 여행 인원: {trip_details.get('member_count', '미정')}명
+- 동반자와의 관계: {trip_details.get('companion_relation', '미정')}
 - 최신 트렌드 반영 여부: {'예' if trip_details.get('trend') else '아니오'}
 
 **필수 JSON 출력 형식:**

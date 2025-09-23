@@ -102,7 +102,7 @@ interface AuthContextType extends AuthState {
   signup: (userData: any) => Promise<any>;
   verifySignupCode: (email: string, code: string) => Promise<User>;
   resendVerificationCode: (email: string) => Promise<boolean>;
-  createTrip: (tripData: any) => Promise<any | null>;
+  createTrip: (tripRequest: any) => Promise<any>;
   getTrips: () => Promise<any[]>;
   getTripDetails: (tripId: string) => Promise<any | null>;
   searchUsers: (email: string) => Promise<SearchResultUser[]>;
@@ -227,9 +227,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createTrip = async (tripData: any) => {
+  const createTrip = async (tripRequest: any) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/trips`, tripData);
+      const response = await axios.post(`${API_URL}/v1/trips`, tripRequest, {
+        headers: {
+          Authorization: `Bearer ${authState.token}`,
+        },
+      });
       return response.data;
     } catch (error) {
       console.error('Trip creation failed:', error);

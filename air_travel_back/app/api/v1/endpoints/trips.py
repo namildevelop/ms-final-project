@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Query, Body
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import json
 
 from app.db.database import get_db
 from app.schemas.trip import (
     TripCreate, TripResponse, TripFullResponse, TripChatResponse, 
     TripMemberCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryItemResponse,
-    TripItineraryOrderUpdate, PackingListItemCreate, PackingListItemUpdate, PackingListItemResponse
+    TripItineraryOrderUpdate, PackingListItemCreate, PackingListItemUpdate, PackingListItemResponse,
+    TripCreateRequest
 )
 from app.schemas.notification import NotificationResponse
 from app.crud import trip as crud_trip, chat as crud_chat
@@ -19,11 +20,11 @@ from app.api.websockets import manager
 
 router = APIRouter()
 
-async def plan_generation_task(trip_id: int):
+async def plan_generation_task(trip_id: int, member_count: int, companion_relation: Optional[str]):
     """A background task to generate a trip itinerary and notify via WebSocket."""
     print(f"Starting background itinerary generation for trip {trip_id}")
     with next(get_db()) as db:
-        crud_trip.generate_and_save_trip_plan(db, trip_id)
+        crud_trip.generate_and_save_trip_plan(db, trip_id, member_count, companion_relation)
     await manager.broadcast(
         trip_id,
         json.dumps({"type": "plan_update", "payload": {"message": "Trip itinerary has been generated!"}})
@@ -32,13 +33,17 @@ async def plan_generation_task(trip_id: int):
 
 @router.post("", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 async def create_trip(
-    trip_data: TripCreate,
+    request: TripCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    new_trip = crud_trip.create_trip(db=db, trip=trip_data, creator_id=current_user.id)
-    background_tasks.add_task(plan_generation_task, new_trip.id)
+    new_trip = crud_trip.create_trip(
+        db=db, 
+        trip=request.trip_data, 
+        creator_id=current_user.id
+    )
+    background_tasks.add_task(plan_generation_task, new_trip.id, request.member_count, request.companion_relation)
     return new_trip
 
 @router.post("/{trip_id}/invite", response_model=NotificationResponse)

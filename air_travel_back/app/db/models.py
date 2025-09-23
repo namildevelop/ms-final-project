@@ -27,7 +27,7 @@ class User(Base):
 
 
     trips_created = relationship("Trip", back_populates="creator")
-    trip_memberships = relationship("TripMember", back_populates="member")
+    trip_memberships = relationship("TripMember", back_populates="user")
     chats = relationship("TripChat", back_populates="sender")
     notifications = relationship("Notification", foreign_keys="[Notification.receiver_id]", back_populates="receiver")
     diaries = relationship("DiaryEntry", back_populates="creator")
@@ -87,7 +87,7 @@ class TripMember(Base):
     joined_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     trip = relationship("Trip", back_populates="members")
-    member = relationship("User", back_populates="trip_memberships")
+    user = relationship("User", back_populates="trip_memberships")
 
 class TripInterest(Base):
     __tablename__ = "trip_interests"

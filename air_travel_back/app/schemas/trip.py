@@ -8,6 +8,7 @@ class UserSimpleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     nickname: str
+    profile_image_url: Optional[str] = None
 
 class TripBase(BaseModel):
     title: str
@@ -36,6 +37,11 @@ class TripItineraryItemBase(BaseModel):
 class TripCreate(TripBase):
     invited_member_emails: Optional[List[EmailStr]] = []
     interests: Optional[List[str]] = []
+
+class TripCreateRequest(BaseModel):
+    trip_data: TripCreate
+    member_count: int
+    companion_relation: Optional[str] = None
 
 class TripMemberCreate(BaseModel):
     user_id: int
@@ -88,6 +94,7 @@ class TripMemberResponse(BaseModel):
     user_id: int
     role: str
     joined_at: datetime
+    user: UserSimpleResponse
 
 class TripInterestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -592,7 +592,7 @@ export default function TripItineraryPage() {
           <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/invite-friends', params: { tripId } }); }}>
             <Text style={styles.menuText}>친구 초대하기</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/packing-list/[tripId]', params: { tripId } }); }}><Text style={styles.menuText}>준비물 체크하기</Text></TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push('/edit-region-dates'); }}><Text style={styles.menuText}>지역/기간 수정하기</Text></TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => { closeMenu(); router.push({ pathname: '/edit-trip-itinerary', params: { tripId } }); }}>
             <Text style={styles.menuText}>여행 동선 편집하기</Text>

@@ -7,7 +7,7 @@ import uuid
 
 from app.db.database import get_db
 from app.schemas.user import UserResponse, UserUpdate
-from app.schemas.trip import TripResponse, TripResponseWithMemberCount
+from app.schemas.trip import TripResponse, TripResponseWithMemberCount, TripFullResponse
 from app.crud import user as crud_user
 from app.crud import trip as crud_trip
 from app.core.security import create_access_token
@@ -65,19 +65,13 @@ async def upload_profile_image(
     
     return updated_user
 
-@router.get("/me/trips", response_model=List[TripResponseWithMemberCount])
+@router.get("/me/trips", response_model=List[TripFullResponse])
 async def read_my_trips(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     trips = crud_trip.get_trips_by_user_id(db, user_id=current_user.id)
-    trips_with_count = [
-        TripResponseWithMemberCount(
-            **TripResponse.model_validate(trip).model_dump(),
-            member_count=len(trip.members)
-        ) for trip in trips
-    ]
-    return trips_with_count
+    return trips
 
 @router.get("/search", response_model=List[UserResponse])
 def search_users(
