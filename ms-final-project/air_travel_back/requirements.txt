@@ -1,0 +1,31 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
+python-dotenv
+websockets
+requests
+authlib
+google-auth
+google-auth-oauthlib
+fastapi-mail
+
+# Translation services
+azure-ai-formrecognizer
+azure-ai-translation-text
+azure-cognitiveservices-speech
+Pillow
+numpy
+pydub
+
+# AI Models and Services (from Jeju YOLO)
+ultralytics
+torch
+torchvision
+clip-by-openai
+faiss-cpu
+azure-cognitiveservices-speech
+openai
+azure-search-documents
