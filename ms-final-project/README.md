@@ -1,9 +1,9 @@
-# 📌 ms-final-project
+#  ms-final-project
 
-##  프로젝트 구조
+## 프로젝트 구조
 
 ```text
- 백엔드 AI 모델 파일들
+##백엔드 AI 모델 파일들
 air_travel_back/app/ai_models/
 ├── __init__.py
 ├── clip_model.py        # CLIP 모델 (장소 인식)
