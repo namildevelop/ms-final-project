@@ -18,6 +18,17 @@ const TripPreferencesPage: React.FC = () => {
   const { createTrip } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Destructure and validate params
+  const { startDate, endDate, country, region } = params;
+
+  if (!startDate || !endDate || !country || !region) {
+    console.error('Missing required trip parameters:', params);
+    Alert.alert('오류', '필수 여행 정보가 누락되었습니다. 다시 시도해주세요.', [
+      { text: '확인', onPress: () => router.back() }
+    ]);
+    return null; // Prevent rendering the component if essential params are missing
+  }
+
   // 교통방식 선택 (중복 선택 가능)
   const [selectedTransportation, setSelectedTransportation] = useState<string[]>([]);
   
@@ -75,11 +86,11 @@ const TripPreferencesPage: React.FC = () => {
     setIsLoading(true);
     try {
       const tripData = {
-        title: `${params.region} 여행`, // Example title
-        start_date: params.startDate,
-        end_date: params.endDate,
-        destination_country: params.country,
-        destination_city: params.region,
+        title: `${region} 여행`, // Use validated region
+        start_date: startDate, // Use validated startDate
+        end_date: endDate,     // Use validated endDate
+        destination_country: country, // Use validated country
+        destination_city: region,    // Use validated region
         transport_method: selectedTransportation.join(', '),
         accommodation: selectedAccommodation.join(', '),
         interests: selectedInterests,
@@ -97,6 +108,7 @@ const TripPreferencesPage: React.FC = () => {
         Alert.alert('오류', '여행 생성에 실패했습니다.');
       }
     } catch (error) {
+      console.error('Error creating trip:', error);
       Alert.alert('오류', '여행 생성 중 문제가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -374,3 +386,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
+
+export default TripPreferencesPage;
