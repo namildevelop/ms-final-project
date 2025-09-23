@@ -1,6 +1,4 @@
-#  ms-final-project
-
-## 프로젝트 구조
+## 통합
 
 ```text
 백엔드 AI 모델 파일들
