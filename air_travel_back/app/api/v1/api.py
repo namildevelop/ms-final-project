@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import users, trips, notifications, google_maps, auth, translation, diary
+from app.api.v1.endpoints import users, trips, notifications, google_maps, auth, translation, diary, ai_analysis
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
@@ -10,3 +10,4 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(google_maps.router, prefix="/google-maps", tags=["google-maps"])
 api_router.include_router(translation.router, prefix="/translation", tags=["translation"])
 api_router.include_router(diary.router, prefix="/diaries", tags=["diaries"])
+api_router.include_router(ai_analysis.router, prefix="/ai-analysis", tags=["ai-analysis"])

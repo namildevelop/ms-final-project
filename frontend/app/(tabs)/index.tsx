@@ -222,7 +222,7 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity accessibilityLabel="번역" style={styles.iconButton} onPress={() => router.push('/translation')}>
               <TranslateIcon width={22} height={22} />
             </TouchableOpacity>
-            <TouchableOpacity accessibilityLabel="AR" style={styles.iconButton} onPress={() => router.push('/translation/image')}>
+            <TouchableOpacity accessibilityLabel="AR" style={styles.iconButton} onPress={() => router.push('/ai-camera')}>
               <ArIcon width={22} height={22} />
             </TouchableOpacity>
             <TouchableOpacity accessibilityLabel="알림" style={styles.iconButton} onPress={() => router.push('/notifications')}>

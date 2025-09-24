@@ -22,8 +22,8 @@ class Settings:
 
     # Azure OpenAI Settings
     AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")
-    AZURE_OPENAI_ENDPOINT: str = "https://team2-openai.openai.azure.com/"
-    AZURE_OPENAI_DEPLOYMENT_NAME: str = "gpt-4.1"
+    AZURE_OPENAI_ENDPOINT: str = os.getenv("ENDPOINT_URL", "https://team2-openai.openai.azure.com/").split("/openai/")[0]
+    AZURE_OPENAI_DEPLOYMENT_NAME: str = os.getenv("DEPLOYMENT_NAME", "gpt-4.1")
 
     # Azure DALL_E Settings
     AZURE_DALL_E_DEPLOYMENT_NAME: str = os.getenv("AZURE_DALL_E_DEPLOYMENT_NAME", "")
@@ -42,5 +42,35 @@ class Settings:
     TRANSLATOR_REGION: str = os.getenv("TRANSLATOR_REGION", "")
     SPEECH_API_KEY: str = os.getenv("SPEECH_API_KEY", "")
     SPEECH_REGION: str = os.getenv("SPEECH_REGION", "")
+
+    # AI Models and Data Paths
+    AI_MODELS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "ai_data")
+    FAISS_INDEX_PATH: str = os.path.join(AI_MODELS_DIR, "index.faiss")
+    META_DATA_PATH: str = os.path.join(AI_MODELS_DIR, "meta_baked.json")
+    YOLO_MODEL_PATH: str = os.path.join(AI_MODELS_DIR, "yolov8n.pt")
+    YOLO_DEVICE: str = os.getenv("YOLO_DEVICE", "cpu")
+
+    # Azure AI Search Settings
+    AZURE_SEARCH_ENDPOINT: str = os.getenv("AZURE_SEARCH_ENDPOINT", "")
+    AZURE_SEARCH_KEY: str = os.getenv("AZURE_SEARCH_AI_KEY", "")
+    AZURE_SEARCH_INDEX: str = os.getenv("AZURE_SEARCH_INDEX", "")
+    AZURE_SPEECH_KEY: str = os.getenv("SPEECH_API_KEY", "")
+    AZURE_SPEECH_REGION: str = os.getenv("SPEECH_REGION", "")
+
+    # Static files directory
+    STATIC_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+
+    # Azure OpenAI Client
+    AZURE_OPENAI_CLIENT = None
+
+    def __init__(self):
+        # Initialize Azure OpenAI client
+        if self.AZURE_OPENAI_API_KEY and self.AZURE_OPENAI_ENDPOINT:
+            from openai import AzureOpenAI
+            self.AZURE_OPENAI_CLIENT = AzureOpenAI(
+                api_key=self.AZURE_OPENAI_API_KEY,
+                azure_endpoint=self.AZURE_OPENAI_ENDPOINT,
+                api_version="2024-02-01",
+            )
 
 settings = Settings()
