@@ -34,7 +34,14 @@ const InviteFriendsPage: React.FC = () => {
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
 
-    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!apiUrl) {
+      Alert.alert("오류", "API URL을 찾을 수 없습니다. 앱 설정을 확인해주세요.");
+      router.replace('/main');
+      return;
+    }
+
+    const wsUrl = `${apiUrl.replace('http', 'ws')}/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => console.log('Invite Friends WebSocket Connected');

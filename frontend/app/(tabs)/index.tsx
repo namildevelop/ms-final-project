@@ -298,7 +298,7 @@ const HomeScreen: React.FC = () => {
               {categorizedTrips.finished.length > 0 && (
                 <View style={styles.tripCategory}>
                   <Text style={styles.sectionTitle}>종료된 여행</Text>
-                  {categorizedTriizedTrips.finished.map(trip => renderTripCard(trip, 'finished'))}
+                  {categorizedTrips.finished.map(trip => renderTripCard(trip, 'finished'))}
                 </View>
               )}
             </>

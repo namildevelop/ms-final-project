@@ -375,7 +375,7 @@ async def websocket_endpoint(
                         "sent_to_gpt": db_chat_message.sent_to_gpt,
                         "created_at": db_chat_message.created_at.isoformat()
                     }
-                await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
+                await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
             elif message_type == "gpt_prompt":
                 user_prompt = payload['user_prompt']
@@ -406,7 +406,7 @@ async def websocket_endpoint(
                         "created_at": user_chat_message.created_at.isoformat()
                     }
                     # Broadcast to others, excluding the sender
-                    await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
+                    await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
                 # 2. Process GPT response
                 try:

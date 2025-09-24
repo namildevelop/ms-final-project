@@ -119,21 +119,29 @@ export default function TripItineraryPage() {
 
   useEffect(() => {
     if (typeof tripId !== 'string' || !token) return;
-    const wsUrl = `ws://0.0.0.0:8000/v1/trips/${tripId}/ws?token=${token}`;
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!apiUrl) {
+      Alert.alert("오류", "API URL을 찾을 수 없습니다. 앱 설정을 확인해주세요.");
+      router.replace('/main');
+      return;
+    }
+    const wsUrl = `${apiUrl.replace('http', 'ws')}/v1/trips/${tripId}/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
     ws.current.onopen = () => console.log('WebSocket Connected');
     ws.current.onclose = () => console.log('WebSocket Disconnected');
     ws.current.onmessage = (event) => {
       const messageData = JSON.parse(event.data);
       if (messageData.type === 'chat_message') {
-        setChatMessages((prev) => [...prev, messageData.payload]);
+        if (messageData.payload.sender.id !== user?.id) {
+          setChatMessages((prev) => [...prev, messageData.payload]);
+        }
       } else if (messageData.type === 'plan_update') {
         Alert.alert("일정 업데이트", "GPT에 의해 여행 일정이 업데이트되었습니다.");
         fetchTripData();
       }
     };
     return () => ws.current?.close();
-  }, [tripId, token, fetchTripData]);
+  }, [tripId, token, fetchTripData, user?.id]);
 
   const handleItineraryItemPress = async (item: TripItineraryItem) => {
     setSelectedItem(item);

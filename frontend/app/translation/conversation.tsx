@@ -6,9 +6,7 @@ import { Audio } from 'expo-av';
 import axios from 'axios';
 import LanguagePicker from './LanguagePicker';
 
-import { API_URL } from '@env';
-
-const SERVER_URL = `${API_URL}/v1/translation/speech-translate`;
+const SERVER_URL = `${process.env.EXPO_PUBLIC_API_URL}/v1/translation/speech-translate`;
 
 type ConversationMessage = {
   id: string;

@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { API_URL } from '@env';
 
 // --- Interfaces ---
 
@@ -147,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const userResponse = await axios.get(`${API_URL}/v1/auth/me`);
+          const userResponse = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/me`);
           setAuthState({
             token: token,
             authenticated: true,
@@ -167,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/auth/login`, { email, password });
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/login`, { email, password });
       const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
@@ -181,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async (idToken: string) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/auth/google/verify`, { id_token: idToken });
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/google/verify`, { id_token: idToken });
       const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
@@ -195,7 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signup = async (userData: any) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/auth/signup`, userData);
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/signup`, userData);
       return response.data;
     } catch (error) {
       console.error('Signup failed:', error);
@@ -205,7 +204,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const verifySignupCode = async (email: string, code: string): Promise<User> => {
     try {
-      const response = await axios.post(`${API_URL}/v1/auth/verify-code`, { email, code });
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/verify-code`, { email, code });
       const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
@@ -219,7 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resendVerificationCode = async (email: string) => {
     try {
-      await axios.post(`${API_URL}/v1/auth/resend-verification`, { email });
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/auth/resend-verification`, { email });
       return true;
     } catch (error) {
       console.error('Resend verification code failed:', error);
@@ -229,7 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createTrip = async (tripRequest: any) => {
     try {
-      const response = await axios.post(`${API_URL}/v1/trips`, tripRequest, {
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips`, tripRequest, {
         headers: {
           Authorization: `Bearer ${authState.token}`,
         },
@@ -243,7 +242,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getTrips = async () => {
     try {
-      const response = await axios.get(`${API_URL}/v1/users/me/trips`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/users/me/trips`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch trips:', error);
@@ -253,7 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getTripDetails = async (tripId: string) => {
     try {
-      const response = await axios.get(`${API_URL}/v1/trips/${tripId}`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch trip details:', error);
@@ -263,7 +262,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const searchUsers = async (email: string): Promise<SearchResultUser[]> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/users/search?email_query=${email}`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/users/search?email_query=${email}`);
       return response.data;
     } catch (error) {
       console.error('Failed to search users:', error);
@@ -273,7 +272,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const inviteUser = async (tripId: string, userId: number): Promise<boolean> => {
     try {
-      await axios.post(`${API_URL}/v1/trips/${tripId}/invite`, { user_id: userId });
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/invite`, { user_id: userId });
       return true;
     } catch (error) {
       console.error('Failed to invite user:', error);
@@ -283,7 +282,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getNotifications = async (): Promise<Notification[]> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/notifications`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/notifications`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
@@ -293,7 +292,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const acceptInvitation = async (notificationId: number): Promise<boolean> => {
     try {
-      await axios.post(`${API_URL}/v1/notifications/${notificationId}/accept`);
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/notifications/${notificationId}/accept`);
       return true;
     } catch (error) {
       console.error('Failed to accept invitation:', error);
@@ -303,7 +302,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const declineInvitation = async (notificationId: number): Promise<boolean> => {
     try {
-      await axios.post(`${API_URL}/v1/notifications/${notificationId}/decline`);
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/notifications/${notificationId}/decline`);
       return true;
     } catch (error) {
       console.error('Failed to decline invitation:', error);
@@ -313,7 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteItineraryItem = async (tripId: string, itemId: number): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}`);
+      await axios.delete(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}`);
       return true;
     } catch (error) {
       console.error('Failed to delete itinerary item:', error);
@@ -323,7 +322,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateItineraryOrder = async (tripId: string, items: { id: number; day: number; order_in_day: number }[]): Promise<boolean> => {
     try {
-      await axios.put(`${API_URL}/v1/trips/${tripId}/itinerary/order`, { items });
+      await axios.put(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/itinerary/order`, { items });
       return true;
     } catch (error) {
       console.error('Failed to update itinerary order:', error);
@@ -333,7 +332,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const searchPlaces = async (query: string): Promise<Place[]> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/google-maps/search?query=${encodeURIComponent(query)}`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/google-maps/search?query=${encodeURIComponent(query)}`);
       return response.data;
     } catch (error) {
       console.error('Failed to search places:', error);
@@ -343,7 +342,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createItineraryItem = async (tripId: string, itemData: any): Promise<boolean> => {
     try {
-      await axios.post(`${API_URL}/v1/trips/${tripId}/itinerary-items/`, itemData);
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/itinerary-items/`, itemData);
       return true;
     } catch (error) {
       console.error('Failed to create itinerary item:', error);
@@ -353,7 +352,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getPlaceDetailsByName = async (placeName: string): Promise<PlaceDetails | null> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/google-maps/place-details-by-name?query=${encodeURIComponent(placeName)}`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/google-maps/place-details-by-name?query=${encodeURIComponent(placeName)}`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch place details:', error);
@@ -363,7 +362,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const generateGptDescription = async (tripId: string, itemId: number): Promise<TripItineraryItem | null> => {
     try {
-      const response = await axios.post(`${API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}/generate-description`);
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}/generate-description`);
       return response.data;
     } catch (error) {
       console.error('Failed to generate GPT description:', error);
@@ -373,7 +372,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const leaveTrip = async (tripId: string): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/v1/trips/${tripId}/members/me`);
+      await axios.delete(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/members/me`);
       return true;
     } catch (error) {
       console.error('Failed to leave trip:', error);
@@ -404,13 +403,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           type: `image/${fileType}`,
         } as any); // 'as any' is used here to bypass TypeScript's strict type checking for FormData append
 
-        response = await axios.post(`${API_URL}/v1/users/me/profile-image`, formData, {
+        response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/users/me/profile-image`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
       } else {
-        response = await axios.put(`${API_URL}/v1/users/me`, profileData);
+        response = await axios.put(`${process.env.EXPO_PUBLIC_API_URL}/v1/users/me`, profileData);
       }
 
       setAuthState(prevState => ({
@@ -427,7 +426,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Packing List Functions
   const getPackingList = async (tripId: string): Promise<PackingListItem[]> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/trips/${tripId}/packing-items`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/packing-items`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch packing list:', error);
@@ -437,7 +436,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const addPackingListItem = async (tripId: string, itemData: { item_name: string; quantity: number }): Promise<PackingListItem | null> => {
     try {
-      const response = await axios.post(`${API_URL}/v1/trips/${tripId}/packing-items`, itemData);
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/packing-items`, itemData);
       return response.data;
     } catch (error) {
       console.error('Failed to add packing list item:', error);
@@ -447,7 +446,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updatePackingListItem = async (tripId: string, itemId: number, itemData: Partial<PackingListItem>): Promise<PackingListItem | null> => {
     try {
-      const response = await axios.put(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}`, itemData);
+      const response = await axios.put(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/packing-items/${itemId}`, itemData);
       return response.data;
     } catch (error) {
       console.error('Failed to update packing list item:', error);
@@ -457,7 +456,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const deletePackingListItem = async (tripId: string, itemId: number): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}`);
+      await axios.delete(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/packing-items/${itemId}`);
       return true;
     } catch (error) {
       console.error('Failed to delete packing list item:', error);
@@ -467,7 +466,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const togglePackingListItem = async (tripId: string, itemId: number): Promise<PackingListItem | null> => {
     try {
-      const response = await axios.patch(`${API_URL}/v1/trips/${tripId}/packing-items/${itemId}/toggle`);
+      const response = await axios.patch(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/packing-items/${itemId}/toggle`);
       return response.data;
     } catch (error) {
       console.error('Failed to toggle packing list item:', error);
@@ -478,7 +477,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Diary Functions
   const getDiaries = async (): Promise<Diary[]> => {
     try {
-      const response = await axios.get(`${API_URL}/v1/diaries`);
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/diaries`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch diaries:', error);
@@ -488,7 +487,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createDiary = async (diaryData: FormData): Promise<Diary | null> => {
     try {
-      const response = await axios.post(`${API_URL}/v1/diaries`, diaryData, {
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/diaries`, diaryData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -502,7 +501,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteDiary = async (diaryId: number): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/v1/diaries/${diaryId}`);
+      await axios.delete(`${process.env.EXPO_PUBLIC_API_URL}/v1/diaries/${diaryId}`);
       return true;
     } catch (error) {
       console.error('Failed to delete diary:', error);
@@ -512,7 +511,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const generateDiaryImage = async (title: string, content: string): Promise<{ image_url: string } | null> => {
     try {
-      const response = await axios.post(`${API_URL}/v1/diaries/generate-image`, { title, content });
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/v1/diaries/generate-image`, { title, content });
       return response.data;
     } catch (error) {
       console.error('Failed to generate diary image:', error);

@@ -6,10 +6,8 @@ import axios from 'axios';
 import { getLanguageName, languageMap } from './utils';
 import LanguagePicker from './LanguagePicker'; // Changed import
 
-import { API_URL } from '@env';
-
 // 🚨 중요: 이 주소는 API 서버의 기본 URL을 사용합니다.
-const SERVER_URL = `${API_URL}/v1/translation/translate`;
+const SERVER_URL = `${process.env.EXPO_PUBLIC_API_URL}/v1/translation/translate`;
 
 const LANG_OPTIONS = Object.keys(languageMap).map(name => ({
     label: name,
