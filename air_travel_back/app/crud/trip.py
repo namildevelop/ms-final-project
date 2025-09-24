@@ -249,9 +249,7 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         "start_date": str(db_trip.start_date),
         "end_date": str(db_trip.end_date),
         "destination_country": db_trip.destination_country,
-        "destination_city": db_trip.destination_city,
-        "member_count": db_trip.member_count,
-        "companion_relation": db_trip.companion_relation
+        "destination_city": db_trip.destination_city
     }
     
     try:

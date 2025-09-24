@@ -9,7 +9,7 @@ class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    BASE_URL: str = os.getenv("BASE_URL", "http://0.0.0.0:8000") # Added BASE_URL
+    BASE_URL: str = os.getenv("BASE_URL", "") # Added BASE_URL
 
     # Mail Settings
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
