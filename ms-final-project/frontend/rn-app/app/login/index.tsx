@@ -32,6 +32,16 @@ const Login: React.FC = () => {
   const extra = Constants.expoConfig?.extra as any;
   const redirectUri = AuthSession.makeRedirectUri();
 
+  // 환경변수 디버깅
+  useEffect(() => {
+    console.log('=== Google Auth 환경변수 디버깅 ===');
+    console.log('EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID:', extra?.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID);
+    console.log('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:', extra?.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
+    console.log('EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID:', extra?.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID);
+    console.log('redirectUri:', redirectUri);
+    console.log('================================');
+  }, []);
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: extra?.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
     iosClientId: extra?.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
