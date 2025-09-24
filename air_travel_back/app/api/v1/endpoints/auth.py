@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.schemas.user import UserCreate, UserLogin, VerifyCode, EmailOnly
+from app.schemas.user import UserCreate, UserLogin, VerifyCode, EmailOnly, UserResponse
 from app.services.auth_service import (
     create_pending_signup, authenticate_user, create_user_from_pending,
     create_access_token_for_user, regenerate_verification_code
@@ -85,12 +85,7 @@ async def verify_code(body: VerifyCode, db: Session = Depends(get_db)):
         "msg": "회원가입이 성공적으로 완료되었습니다.",
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {
-            "id": new_user.id,
-            "email": new_user.email,
-            "nickname": new_user.nickname,
-            "profile_completed": getattr(new_user, 'profile_completed', False)
-        }
+        "user": new_user
     }
 
 @router.post("/resend-verification")
@@ -122,12 +117,7 @@ async def login(body: UserLogin, db: Session = Depends(get_db)):
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "nickname": user.nickname,
-                "profile_completed": user.profile_completed
-            }
+            "user": user
         }
     except HTTPException:
         raise
@@ -180,12 +170,7 @@ async def verify_google_token(body: dict, request: Request, db: Session = Depend
             return {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "nickname": user.nickname,
-                    "profile_completed": user.profile_completed
-                }
+                "user": user
             }
         else:
             # 새 사용자 생성
@@ -211,12 +196,7 @@ async def verify_google_token(body: dict, request: Request, db: Session = Depend
             return {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "nickname": user.nickname,
-                    "profile_completed": user.profile_completed
-                }
+                "user": user
             }
             
     except HTTPException:
@@ -224,7 +204,7 @@ async def verify_google_token(body: dict, request: Request, db: Session = Depend
     except Exception as e:
         raise HTTPException(500, f"Google 인증 중 오류가 발생했습니다: {str(e)}")
 
-@router.get("/me")
+@router.get("/me", response_model=UserResponse)
 async def get_current_user(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db)
@@ -240,9 +220,4 @@ async def get_current_user(
     if not user:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
     
-    return {
-        "id": user.id,
-        "email": user.email,
-        "nickname": user.nickname,
-        "profile_completed": user.profile_completed
-    }
+    return user

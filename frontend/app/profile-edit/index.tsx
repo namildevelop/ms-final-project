@@ -90,6 +90,7 @@ const ProfileEditScreen = () => {
  
   useEffect(() => {
     if (user) {
+      console.log('User object in Profile Edit:', JSON.stringify(user, null, 2));
       setProfileData({
         nickname: user.nickname || '',
         phone: user.phone || '',
