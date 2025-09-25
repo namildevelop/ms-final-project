@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, Text, TIMESTAMP, Boolean, ForeignKey, Time, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.sql import text
 
 from app.db.database import Base
 
@@ -9,19 +10,50 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
-    password = Column(String(255), nullable=False)
+    password = Column(String(255), nullable=True)
     nickname = Column(String(50), nullable=False)
     phone = Column(String(20))
     gender = Column(String(10))
     birth_date = Column(Date)
     address = Column(Text)
     mbti = Column(String(10))
+    profile_image_url = Column(Text, default='') # Added profile_image_url
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    is_verified = Column(Boolean, server_default=text("FALSE"))
+    provider = Column(String(50), default="email")
+    provider_sub = Column(String(255), unique=True, nullable=True)
+    profile_completed = Column(Boolean, server_default=text("FALSE"))
+    google_id = Column(String(255), nullable=True, unique=True, index=True)
+
 
     trips_created = relationship("Trip", back_populates="creator")
-    trip_memberships = relationship("TripMember", back_populates="member")
+    trip_memberships = relationship("TripMember", back_populates="user")
     chats = relationship("TripChat", back_populates="sender")
     notifications = relationship("Notification", foreign_keys="[Notification.receiver_id]", back_populates="receiver")
+    diaries = relationship("DiaryEntry", back_populates="creator")
+
+class PendingSignup(Base):
+    __tablename__ = "pending_signups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # fields captured at signup time
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    nickname = Column(String(50), nullable=False)
+    phone = Column(String(20), nullable=True)
+    gender = Column(String(10), nullable=True)
+    birth_date = Column(Date, nullable=True)
+    address = Column(String, nullable=True)
+    mbti = Column(String(10), nullable=True)
+    profile_image_url = Column(String, nullable=True, server_default=text("''"))
+
+    # verification token/code
+    verify_token = Column(String, nullable=True)
+    verify_token_exp = Column(TIMESTAMP, nullable=True)
+    verify_code = Column(String(6), nullable=True)
+    verify_code_exp = Column(TIMESTAMP, nullable=True)
+
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
 class Trip(Base):
     __tablename__ = "trips"
@@ -43,6 +75,7 @@ class Trip(Base):
     interests = relationship("TripInterest", back_populates="trip")
     itinerary_items = relationship("TripItineraryItem", back_populates="trip", cascade="all, delete-orphan")
     chats = relationship("TripChat", back_populates="trip", order_by="TripChat.created_at")
+    packing_list_items = relationship("PackingListItem", back_populates="trip", cascade="all, delete-orphan")
 
 class TripMember(Base):
     __tablename__ = "trip_members"
@@ -54,7 +87,7 @@ class TripMember(Base):
     joined_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     trip = relationship("Trip", back_populates="members")
-    member = relationship("User", back_populates="trip_memberships")
+    user = relationship("User", back_populates="trip_memberships")
 
 class TripInterest(Base):
     __tablename__ = "trip_interests"
@@ -85,6 +118,18 @@ class TripItineraryItem(Base):
 
     trip = relationship("Trip", back_populates="itinerary_items")
 
+class PackingListItem(Base):
+    __tablename__ = "packing_list_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False)
+    item_name = Column(String(255), nullable=False)
+    quantity = Column(Integer, default=1)
+    is_packed = Column(Boolean, default=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    trip = relationship("Trip", back_populates="packing_list_items")
+
 class TripChat(Base):
     __tablename__ = "trip_chats"
 
@@ -114,3 +159,18 @@ class Notification(Base):
     receiver = relationship("User", foreign_keys=[receiver_id], back_populates="notifications")
     sender = relationship("User", foreign_keys=[sender_id])
     trip = relationship("Trip")
+
+class DiaryEntry(Base):
+    __tablename__ = "diary_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    date = Column(Date, nullable=False)
+    photo_path = Column(String(500), nullable=True)
+    ai_image_url = Column(String(1000), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    creator = relationship("User", back_populates="diaries")

@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Query, Body
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import json
 
 from app.db.database import get_db
 from app.schemas.trip import (
     TripCreate, TripResponse, TripFullResponse, TripChatResponse, 
     TripMemberCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryItemResponse,
-    TripItineraryOrderUpdate
+    TripItineraryOrderUpdate, PackingListItemCreate, PackingListItemUpdate, PackingListItemResponse,
+    TripCreateRequest
 )
 from app.schemas.notification import NotificationResponse
 from app.crud import trip as crud_trip, chat as crud_chat
@@ -19,11 +20,11 @@ from app.api.websockets import manager
 
 router = APIRouter()
 
-async def plan_generation_task(trip_id: int):
+async def plan_generation_task(trip_id: int, member_count: int, companion_relation: Optional[str]):
     """A background task to generate a trip itinerary and notify via WebSocket."""
     print(f"Starting background itinerary generation for trip {trip_id}")
     with next(get_db()) as db:
-        crud_trip.generate_and_save_trip_plan(db, trip_id)
+        crud_trip.generate_and_save_trip_plan(db, trip_id, member_count, companion_relation)
     await manager.broadcast(
         trip_id,
         json.dumps({"type": "plan_update", "payload": {"message": "Trip itinerary has been generated!"}})
@@ -32,13 +33,17 @@ async def plan_generation_task(trip_id: int):
 
 @router.post("", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 async def create_trip(
-    trip_data: TripCreate,
+    request: TripCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    new_trip = crud_trip.create_trip(db=db, trip=trip_data, creator_id=current_user.id)
-    background_tasks.add_task(plan_generation_task, new_trip.id)
+    new_trip = crud_trip.create_trip(
+        db=db, 
+        trip=request.trip_data, 
+        creator_id=current_user.id
+    )
+    background_tasks.add_task(plan_generation_task, new_trip.id, request.member_count, request.companion_relation)
     return new_trip
 
 @router.post("/{trip_id}/invite", response_model=NotificationResponse)
@@ -187,6 +192,98 @@ def delete_itinerary_item(
         raise HTTPException(status_code=404, detail="Itinerary item not found")
     return
 
+# --- Packing List Item Endpoints ---
+
+@router.post("/{trip_id}/packing-items", response_model=PackingListItemResponse, status_code=status.HTTP_201_CREATED)
+def create_packing_list_item_endpoint(
+    trip_id: int,
+    item: PackingListItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to add items to this packing list")
+    return crud_trip.create_packing_list_item(db=db, trip_id=trip_id, item=item)
+
+@router.get("/{trip_id}/packing-items", response_model=List[PackingListItemResponse])
+def get_packing_list_items_endpoint(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to view this packing list")
+    return crud_trip.get_packing_list_items_by_trip_id(db=db, trip_id=trip_id)
+
+@router.put("/{trip_id}/packing-items/{item_id}", response_model=PackingListItemResponse)
+def update_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    item_update: PackingListItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to update this packing list")
+    
+    db_item = crud_trip.get_packing_list_item(db, item_id=item_id)
+    if not db_item or db_item.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
+
+    return crud_trip.update_packing_list_item(db=db, item_id=item_id, item_update=item_update)
+
+@router.patch("/{trip_id}/packing-items/{item_id}/toggle", response_model=PackingListItemResponse)
+def toggle_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to update this packing list")
+
+    db_item = crud_trip.get_packing_list_item(db, item_id=item_id)
+    if not db_item or db_item.trip_id != trip_id:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
+
+    item_update = PackingListItemUpdate(is_packed=not db_item.is_packed)
+    return crud_trip.update_packing_list_item(db=db, item_id=item_id, item_update=item_update)
+
+@router.delete("/{trip_id}/packing-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_packing_list_item_endpoint(
+    trip_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_trip = crud_trip.get_trip_by_id(db, trip_id=trip_id)
+    if not db_trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    is_member = any(member.user_id == current_user.id for member in db_trip.members)
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Not authorized to delete from this packing list")
+
+    db_item = crud_trip.delete_packing_list_item(db=db, item_id=item_id)
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Packing list item not found")
+    return
+
 @router.post("/{trip_id}/itinerary-items/{item_id}/generate-description", response_model=TripItineraryItemResponse)
 def generate_item_description(
     trip_id: int,
@@ -278,7 +375,7 @@ async def websocket_endpoint(
                         "sent_to_gpt": db_chat_message.sent_to_gpt,
                         "created_at": db_chat_message.created_at.isoformat()
                     }
-                await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
+                await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
             elif message_type == "gpt_prompt":
                 user_prompt = payload['user_prompt']
@@ -309,7 +406,7 @@ async def websocket_endpoint(
                         "created_at": user_chat_message.created_at.isoformat()
                     }
                     # Broadcast to others, excluding the sender
-                    await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}), exclude_websocket=websocket)
+                    await manager.broadcast(trip_id, json.dumps({"type": "chat_message", "payload": response_payload}))
 
                 # 2. Process GPT response
                 try:

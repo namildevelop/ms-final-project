@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session, joinedload
 import requests
 from typing import Optional, List
-from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem
-from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryOrderUpdate
+from app.db.models import Trip, TripMember, TripInterest, User, TripChat, TripItineraryItem, PackingListItem
+from app.schemas.trip import TripCreate, TripItineraryItemCreate, TripItineraryItemUpdate, TripItineraryOrderUpdate, PackingListItemCreate, PackingListItemUpdate
 from app.services.openai import generate_trip_plan_with_gpt, get_gpt_chat_response, get_gpt_place_description
 from app.crud.user import get_user_by_email
 from app.crud.chat import create_chat_message
 from app.core.config import settings
 from datetime import datetime, timezone, time
 import logging
+import json # Import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -103,7 +104,7 @@ def add_trip_member(db: Session, trip_id: int, user_id: int):
     db.refresh(db_member)
     return db_member
 
-def generate_and_save_trip_plan(db: Session, trip_id: int):
+def generate_and_save_trip_plan(db: Session, trip_id: int, member_count: int, companion_relation: Optional[str]):
     logger.info(f"Starting plan generation for trip_id: {trip_id}")
     db_trip = db.query(Trip).options(joinedload(Trip.interests)).filter(Trip.id == trip_id).first()
     if not db_trip:
@@ -119,7 +120,9 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
         "transport_method": db_trip.transport_method,
         "accommodation": db_trip.accommodation,
         "trend": db_trip.trend,
-        "interests": [interest.interest for interest in db_trip.interests]
+        "interests": [interest.interest for interest in db_trip.interests],
+        "member_count": member_count,
+        "companion_relation": companion_relation
     }
 
     try:
@@ -130,7 +133,19 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
         itinerary_items = gpt_response.get("itinerary", [])
         if not itinerary_items:
             logger.warning(f"GPT returned no itinerary items for trip {trip_id}")
-            return
+
+        # Handle packing list
+        packing_list_items = gpt_response.get("packing_list", [])
+        if packing_list_items:
+            for item_name in packing_list_items:
+                db_packing_item = PackingListItem(
+                    trip_id=trip_id,
+                    item_name=item_name,
+                    is_packed=False,
+                    quantity=1  # Default quantity
+                )
+                db.add(db_packing_item)
+            logger.info(f"Saved {len(packing_list_items)} packing list items for trip {trip_id}")
 
         for item_data in itinerary_items:
             coords = _geocode_address(item_data.get('address'))
@@ -149,23 +164,25 @@ def generate_and_save_trip_plan(db: Session, trip_id: int):
             )
             db.add(db_item)
         
-        logger.info(f"Adding {len(itinerary_items)} items to session for trip {trip_id}")
+        logger.info(f"Adding {len(itinerary_items)} itinerary items and packing list to session for trip {trip_id}")
         db.commit()
-        logger.info(f"Successfully generated and saved itinerary for trip {trip_id}")
+        logger.info(f"Successfully generated and saved plan for trip {trip_id}")
     except Exception as e:
-        logger.error(f"An error occurred during itinerary generation for trip {trip_id}: {e}", exc_info=True)
+        logger.error(f"An error occurred during plan generation for trip {trip_id}: {e}", exc_info=True)
         db.rollback()
+
 
 def get_trip_by_id(db: Session, trip_id: int):
     return db.query(Trip).options(
-        joinedload(Trip.members),
+        joinedload(Trip.members).joinedload(TripMember.user),
         joinedload(Trip.interests),
         joinedload(Trip.itinerary_items),
-        joinedload(Trip.chats)
+        joinedload(Trip.chats),
+        joinedload(Trip.packing_list_items)  # Eager load packing list items
     ).filter(Trip.id == trip_id).first()
 
 def get_trips_by_user_id(db: Session, user_id: int):
-    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).options(joinedload(Trip.members)).all()
+    return db.query(Trip).join(TripMember).filter(TripMember.user_id == user_id).options(joinedload(Trip.members).joinedload(TripMember.user)).all()
 
 def get_itinerary_item(db: Session, item_id: int):
     return db.query(TripItineraryItem).filter(TripItineraryItem.id == item_id).first()
@@ -232,7 +249,7 @@ def process_gpt_prompt_for_trip(db: Session, trip_id: int, user_prompt: str, cur
         "start_date": str(db_trip.start_date),
         "end_date": str(db_trip.end_date),
         "destination_country": db_trip.destination_country,
-        "destination_city": db_trip.destination_city,
+        "destination_city": db_trip.destination_city
     }
     
     try:
@@ -378,3 +395,41 @@ def leave_trip(db: Session, trip_id: int, user_id: int) -> bool:
             logger.info(f"Trip {trip_id} has been deleted.")
     
     return True
+
+# CRUD operations for PackingListItems
+
+def get_packing_list_item(db: Session, item_id: int) -> Optional[PackingListItem]:
+    return db.query(PackingListItem).filter(PackingListItem.id == item_id).first()
+
+def get_packing_list_items_by_trip_id(db: Session, trip_id: int) -> List[PackingListItem]:
+    return db.query(PackingListItem).filter(PackingListItem.trip_id == trip_id).all()
+
+def create_packing_list_item(db: Session, trip_id: int, item: PackingListItemCreate) -> PackingListItem:
+    db_item = PackingListItem(
+        **item.model_dump(),
+        trip_id=trip_id
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def update_packing_list_item(db: Session, item_id: int, item_update: PackingListItemUpdate) -> Optional[PackingListItem]:
+    db_item = get_packing_list_item(db, item_id)
+    if not db_item:
+        return None
+    update_data = item_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_item, key, value)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def delete_packing_list_item(db: Session, item_id: int) -> Optional[PackingListItem]:
+    db_item = get_packing_list_item(db, item_id)
+    if not db_item:
+        return None
+    db.delete(db_item)
+    db.commit()
+    return db_item
