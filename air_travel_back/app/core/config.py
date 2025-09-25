@@ -57,6 +57,12 @@ class Settings:
     AZURE_SPEECH_KEY: str = os.getenv("SPEECH_API_KEY", "")
     AZURE_SPEECH_REGION: str = os.getenv("SPEECH_REGION", "")
 
+    # Azure RAG Settings
+    AZURE_SEARCH_INDEX: str = os.getenv("AZURE_SEARCH_INDEX", "")
+    AZURE_SEMANTIC_CONFIG: str = os.getenv("AZURE_SEMANTIC_CONFIG", "")
+    AZURE_SEARCH_AI_KEY: str = os.getenv("AZURE_SEARCH_AI_KEY", "")
+    AZURE_SEARCH_ENDPOINT: str = os.getenv("AZURE_SEARCH_ENDPOINT", "")
+
     # Static files directory
     STATIC_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 
