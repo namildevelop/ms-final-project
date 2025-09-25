@@ -16,8 +16,6 @@ import * as Speech from "expo-speech";
 import axios from "axios";
 import { useAuth } from "../../src/context/AuthContext";
 
-import { API_URL } from "@env";
-
 interface DetectionResult {
   id: string;
   label: string;

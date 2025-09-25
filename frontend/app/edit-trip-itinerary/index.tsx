@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Keyboard, TouchableWithoutFeedback
+  View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Keyboard, TouchableWithoutFeedback, Platform
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth, Place } from '../../src/context/AuthContext';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 // --- Interfaces ---
 interface TripItineraryItem {
@@ -17,6 +18,10 @@ interface TripItineraryItem {
   description?: string;
   start_time?: string;
   end_time?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  gpt_description?: string | null;
   type: 'ITEM'; // To differentiate list item types
 }
 
@@ -49,12 +54,20 @@ interface AddItineraryModalProps {
 export default function EditTripItineraryPage() {
   const router = useRouter();
   const { tripId } = useLocalSearchParams();
-  const { getTripDetails, deleteItineraryItem, updateItineraryOrder } = useAuth();
+  const { getTripDetails, deleteItineraryItem, updateItineraryOrder, updateItineraryItemTime } = useAuth();
 
   const [tripData, setTripData] = useState<TripDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [listData, setListData] = useState<ListItem[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<TripItineraryItem | null>(null);
+
+  // New state for DateTimePicker
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<'start' | 'end'>('start');
 
   const fetchTripData = useCallback(async () => {
     if (typeof tripId !== 'string') return;
@@ -62,7 +75,7 @@ export default function EditTripItineraryPage() {
     try {
       const data = await getTripDetails(tripId);
       if (data && data.itinerary_items) {
-        const itemsWithType: TripItineraryItem[] = data.itinerary_items.map((item: Omit<TripItineraryItem, 'type'>) => ({ ...item, type: 'ITEM' }));
+        const itemsWithType = data.itinerary_items.map((item: Omit<TripItineraryItem, 'type'>) => ({ ...item, type: 'ITEM' }));
         setTripData({ ...data, itinerary_items: itemsWithType });
       } else {
         setTripData(data);
@@ -96,6 +109,67 @@ export default function EditTripItineraryPage() {
       setListData(newListData);
     }
   }, [tripData]);
+
+  const handleOpenTimeModal = (item: TripItineraryItem) => {
+    setEditingItem(item);
+    const now = new Date();
+    if (item.start_time) {
+      const [h, m] = item.start_time.split(':');
+      now.setHours(parseInt(h, 10), parseInt(m, 10));
+      setStartTime(new Date(now));
+    } else {
+      setStartTime(new Date());
+    }
+    if (item.end_time) {
+      const [h, m] = item.end_time.split(':');
+      now.setHours(parseInt(h, 10), parseInt(m, 10));
+      setEndTime(new Date(now));
+    } else {
+      setEndTime(new Date());
+    }
+    setIsTimeModalVisible(true);
+  };
+
+  const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    const currentDate = selectedDate || (timePickerTarget === 'start' ? startTime : endTime);
+    setShowTimePicker(Platform.OS === 'ios');
+    if (event.type === 'set') {
+        if (timePickerTarget === 'start') {
+            setStartTime(currentDate);
+        } else {
+            setEndTime(currentDate);
+        }
+    }
+  };
+
+  const showPicker = (target: 'start' | 'end') => {
+    setTimePickerTarget(target);
+    setShowTimePicker(true);
+  };
+
+  const formatTimeForDisplay = (date: Date) => {
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  const handleSaveTime = async () => {
+    if (!editingItem || !tripId || typeof tripId !== 'string') return;
+
+    const formatTimeForApi = (date: Date) => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}:00`;
+    }
+
+    const success = await updateItineraryItemTime(tripId, editingItem.id, formatTimeForApi(startTime), formatTimeForApi(endTime));
+    if (success) {
+      Alert.alert("성공", "시간이 업데이트되었습니다.");
+      fetchTripData();
+      setIsTimeModalVisible(false);
+      setEditingItem(null);
+    } else {
+      Alert.alert("오류", "시간 업데이트에 실패했습니다.");
+    }
+  };
 
   const handleDeleteItem = (itemToDelete: TripItineraryItem) => {
     if (typeof tripId !== 'string') return;
@@ -170,7 +244,7 @@ export default function EditTripItineraryPage() {
               <Text style={styles.timeText}>{formatTime(itineraryItem.start_time)} - {formatTime(itineraryItem.end_time)}</Text>
             </View>
             <View style={styles.itemActions}>
-              <TouchableOpacity style={styles.timeEditButton} onPress={() => {}}>
+              <TouchableOpacity style={styles.timeEditButton} onPress={() => handleOpenTimeModal(itineraryItem)}>
                 <Text style={styles.timeEditButtonText}>시간 수정</Text>
               </TouchableOpacity>
               <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dragHandle}>
@@ -183,11 +257,60 @@ export default function EditTripItineraryPage() {
     );
   }, [handleDeleteItem]);
 
+  const renderTimeEditModal = () => {
+    return (
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isTimeModalVisible}
+        onRequestClose={() => setIsTimeModalVisible(false)}
+      >
+        <View style={styles.centeredModalOverlay}>
+          <View style={styles.timeModalContainer}>
+            <Text style={styles.timeModalTitle}>시간 수정</Text>
+            
+            <View style={styles.timeInputRow}>
+              <Text style={styles.timeLabel}>시작</Text>
+              <TouchableOpacity onPress={() => showPicker('start')} style={styles.timeDisplayBox}>
+                <Text style={styles.timeDisplayText}>{formatTimeForDisplay(startTime)}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.timeInputRow}>
+              <Text style={styles.timeLabel}>종료</Text>
+              <TouchableOpacity onPress={() => showPicker('end')} style={styles.timeDisplayBox}>
+                <Text style={styles.timeDisplayText}>{formatTimeForDisplay(endTime)}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showTimePicker && (
+              <DateTimePicker
+                testID="dateTimePicker"
+                value={timePickerTarget === 'start' ? startTime : endTime}
+                mode="time"
+                is24Hour={true}
+                display="spinner" // or 'default', 'clock', 'calendar'
+                onChange={onTimeChange}
+              />
+            )}
+
+            <View style={styles.timeModalButtons}>
+              <TouchableOpacity style={[styles.timeModalButton, styles.cancelButton]} onPress={() => setIsTimeModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.timeModalButton, styles.saveButton]} onPress={handleSaveTime}>
+                <Text style={styles.saveButtonText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
   if (isLoading || !tripData) {
     return <SafeAreaView style={[styles.container, styles.centered]}><ActivityIndicator size="large" color="#007AFF" /></SafeAreaView>;
   }
-
-  const { title, start_date, end_date } = tripData;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -224,6 +347,7 @@ export default function EditTripItineraryPage() {
           tripData={tripData}
           onItineraryAdded={fetchTripData}
         />
+        {renderTimeEditModal()}
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -393,6 +517,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  centeredModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContainer: {
     height: '95%',
     backgroundColor: '#FFFFFF',
@@ -430,4 +560,66 @@ const styles = StyleSheet.create({
   },
   modalAddButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#6B7280' },
+  // Time Edit Modal Styles
+  timeModalContainer: {
+    width: '90%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  timeModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  timeLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  timeDisplayBox: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  timeDisplayText: {
+    fontSize: 16,
+  },
+  timeModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  timeModalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#E5E7EB',
+    marginRight: 10,
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    backgroundColor: '#3B82F6',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
 });

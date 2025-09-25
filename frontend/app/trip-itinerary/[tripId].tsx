@@ -52,6 +52,7 @@ export default function TripItineraryPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isGptActive, setIsGptActive] = useState(false);
+  const [isGptLoading, setIsGptLoading] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const chatFlatListRef = useRef<FlatList>(null);
 
@@ -132,10 +133,14 @@ export default function TripItineraryPage() {
     ws.current.onmessage = (event) => {
       const messageData = JSON.parse(event.data);
       if (messageData.type === 'chat_message') {
+        if (messageData.payload.is_from_gpt) {
+          setIsGptLoading(false);
+        }
         if (messageData.payload.sender.id !== user?.id) {
           setChatMessages((prev) => [...prev, messageData.payload]);
         }
       } else if (messageData.type === 'plan_update') {
+        setIsGptLoading(false);
         Alert.alert("일정 업데이트", "GPT에 의해 여행 일정이 업데이트되었습니다.");
         fetchTripData();
       }
@@ -262,6 +267,9 @@ export default function TripItineraryPage() {
     if (!chatInput.trim() || !ws.current || !user) return;
     const messageType = isGptActive ? 'gpt_prompt' : 'chat_message';
     const payload = { [isGptActive ? 'user_prompt' : 'message']: chatInput };
+    if (isGptActive) {
+      setIsGptLoading(true);
+    }
     const tempId = Date.now() + Math.random();
     const newMessage: ChatMessage = {
       id: tempId,
@@ -419,6 +427,7 @@ export default function TripItineraryPage() {
           style={styles.chatMessages}
           onContentSizeChange={() => chatFlatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => chatFlatListRef.current?.scrollToEnd({ animated: false })}
+          ListFooterComponent={isGptLoading ? <ActivityIndicator size="small" color="#007AFF" style={{ marginVertical: 20 }} /> : null}
         />
         <View style={styles.inputContainer}>
           <TouchableOpacity style={[styles.gptButton, isGptActive && styles.gptButtonActive]} onPress={() => setIsGptActive(!isGptActive)}>

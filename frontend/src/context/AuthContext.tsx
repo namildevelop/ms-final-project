@@ -111,6 +111,7 @@ interface AuthContextType extends AuthState {
   declineInvitation: (notificationId: number) => Promise<boolean>;
   deleteItineraryItem: (tripId: string, itemId: number) => Promise<boolean>;
   updateItineraryOrder: (tripId: string, items: { id: number; day: number; order_in_day: number }[]) => Promise<boolean>;
+  updateItineraryItemTime: (tripId: string, itemId: number, startTime: string, endTime: string) => Promise<boolean>;
   searchPlaces: (query: string) => Promise<Place[]>;
   createItineraryItem: (tripId: string, itemData: any) => Promise<boolean>;
   getPlaceDetailsByName: (placeName: string) => Promise<PlaceDetails | null>;
@@ -330,6 +331,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateItineraryItemTime = async (tripId: string, itemId: number, startTime: string, endTime: string): Promise<boolean> => {
+    try {
+      await axios.put(`${process.env.EXPO_PUBLIC_API_URL}/v1/trips/${tripId}/itinerary-items/${itemId}`, { start_time: startTime, end_time: endTime });
+      return true;
+    } catch (error) {
+      console.error('Failed to update itinerary item time:', error);
+      return false;
+    }
+  };
+
   const searchPlaces = async (query: string): Promise<Place[]> => {
     try {
       const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/v1/google-maps/search?query=${encodeURIComponent(query)}`);
@@ -543,6 +554,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     declineInvitation,
     deleteItineraryItem,
     updateItineraryOrder,
+    updateItineraryItemTime,
     searchPlaces,
     createItineraryItem,
     getPlaceDetailsByName,
